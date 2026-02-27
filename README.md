@@ -85,9 +85,23 @@ production-ready backend design.
 
 ## 📂 Project Structure
 
-jobie/ │ ├── frontend/ │ ├── src/ │ │ ├── components/ │ │ ├── pages/ │ │
-├── context/ │ │ └── services/ │ ├── backend/ │ ├── controllers/ │ ├──
-routes/ │ ├── models/ │ ├── middleware/ │ └── config/ │ └── README.md
+jobie/
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── context/
+│   │   └── services/
+│
+├── backend/
+│   ├── controllers/
+│   ├── routes/
+│   ├── models/
+│   ├── middleware/
+│   └── config/
+│
+└── README.md
 
 ------------------------------------------------------------------------
 
@@ -155,8 +169,3 @@ cd frontend npm install npm start
 -   Multi-language Support
 
 ------------------------------------------------------------------------
-
-## 👨‍💻 Author
-
-Ekansh Dhiman\
-Full Stack Developer \| MERN Stack Enthusiast
