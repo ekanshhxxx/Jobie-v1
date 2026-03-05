@@ -55,3 +55,29 @@ export const getJobApplications = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const updateApplicationStatus = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const { status } = req.body;
+
+    const validStatuses = [
+      "applied", "shortlisted", "interview_scheduled", "interview_done",
+      "offer_sent", "offer_accepted", "offer_rejected", "hired", "rejected"
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    const application = await Application.findByPk(id);
+    if (!application) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    await application.update({ status });
+    res.status(200).json(application);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating application status", error });
+  }
+};

@@ -28,6 +28,26 @@ const Job = sequelize.define("Job", {
 
   description: {
     type: DataTypes.TEXT
+  },
+
+  requiredSkills: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+
+  techStack: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+
+  experienceLevel: {
+    type: DataTypes.ENUM("junior", "mid", "senior"),
+    defaultValue: "mid"
+  },
+
+  recruiterId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 });
 
