@@ -84,3 +84,19 @@ export const deleteJob = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error deleting job", error });
   }
 };
+
+// Get all jobs posted by a specific recruiter
+export const getRecruiterJobs = async (req: Request, res: Response) => {
+  try {
+    const recruiterId = Number(req.query.recruiterId);
+
+    if (!recruiterId) {
+      return res.status(400).json({ message: "recruiterId query param is required" });
+    }
+
+    const jobs = await Job.findAll({ where: { recruiterId } });
+    res.status(200).json(jobs);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching recruiter jobs", error });
+  }
+};
