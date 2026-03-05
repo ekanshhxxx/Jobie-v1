@@ -29,7 +29,7 @@ export const getJobById = async (req: Request, res: Response) => {
 // Create job
 export const createJob = async (req: Request, res: Response) => {
   try {
-    const { title, company, location, salary, description } = req.body;
+    const { title, company, location, salary, description, requiredSkills, techStack, experienceLevel, recruiterId } = req.body;
 
     const job = await Job.create({
       title,
@@ -37,6 +37,10 @@ export const createJob = async (req: Request, res: Response) => {
       location,
       salary,
       description,
+      requiredSkills: requiredSkills || [],
+      techStack: techStack || [],
+      experienceLevel: experienceLevel || "mid",
+      recruiterId: recruiterId || null
     });
 
     res.status(201).json(job);
