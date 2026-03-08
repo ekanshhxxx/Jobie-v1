@@ -9,6 +9,8 @@ import authRoutes from "./routes/authRoutes";
 import profileRoutes from "./routes/profileRoutes";
 import matchRoutes from "./routes/matchRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import githubRoutes from "./routes/githubRoutes";
+import resumeRoutes from "./routes/resumeRoutes";
 
 dotenv.config();
 
@@ -22,6 +24,8 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/github", githubRoutes);
+app.use("/api/resume", resumeRoutes);
 
 app.get("/", (req, res) => {
   res.send("Jobie API running");
