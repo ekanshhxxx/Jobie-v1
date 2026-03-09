@@ -7,7 +7,16 @@ class Job extends Model {
   public description!: string;
   public company!: string;
   public location!: string;
+
+  public salary!: string;
+  public experience!: string;
+  public jobType!: string;
+
+  public skills!: string;
+  public techSkills!: string; // NEW FIELD
+
   public recruiterId!: number;
+  public status!: string;
 }
 
 Job.init(
@@ -38,9 +47,39 @@ Job.init(
       allowNull: false,
     },
 
+    salary: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    experience: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    jobType: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    skills: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+
+    techSkills: { // NEW FIELD
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+
     recruiterId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+    },
+
+    status: {
+      type: DataTypes.ENUM("active", "draft", "closed"),
+      defaultValue: "active",
     },
   },
   {

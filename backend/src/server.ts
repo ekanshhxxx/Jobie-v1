@@ -16,7 +16,7 @@ app.use("/api/jobs", jobRoutes);
 const PORT = process.env.PORT || 4000;
 
 sequelize
-  .sync()
+  .sync({ alter: true }) 
   .then(() => {
     console.log("Database Connected");
 
