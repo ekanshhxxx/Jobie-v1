@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import sequelize from "./config/database";
+
 import "./models";
 import jobRoutes from "./routes/jobRoutes";
 import applicationRoutes from "./routes/applicationRoutes";
@@ -12,6 +13,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+/* Routes */
 app.use("/api/jobs", jobRoutes);
 app.use("/api/applications", applicationRoutes);
 
@@ -19,12 +22,12 @@ app.get("/", (req, res) => {
   res.send("Jobie API running");
 });
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = process.env.PORT || 4000;
 
 sequelize
-  .sync()
+  .sync({ alter: true })
   .then(() => {
-    console.log("Database synced");
+    console.log("Database Connected");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

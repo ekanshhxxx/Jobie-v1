@@ -1,10 +1,15 @@
 import { Request, Response } from "express";
 import Job from "../models/Job";
 
+/* ---------------- Candidate APIs ---------------- */
+
 // Get all jobs
 export const getAllJobs = async (req: Request, res: Response) => {
   try {
-    const jobs = await Job.findAll();
+    const jobs = await Job.findAll({
+      where: { status: "active" }
+    });
+
     res.status(200).json(jobs);
   } catch (error) {
     res.status(500).json({ message: "Error fetching jobs", error });
@@ -26,30 +31,68 @@ export const getJobById = async (req: Request, res: Response) => {
   }
 };
 
+/* ---------------- Recruiter APIs ---------------- */
+
 // Create job
 export const createJob = async (req: Request, res: Response) => {
   try {
-    const { title, company, location, salary, description } = req.body;
 
-    const job = await Job.create({
+    const {
       title,
+      description,
       company,
       location,
       salary,
+      experience,
+      jobType,
+      skills,
+      techSkills,
+      recruiterId,
+      status
+    } = req.body;
+
+    if (
+      !title ||
+      !company ||
+      !location ||
+      !salary ||
+      !experience ||
+      !jobType ||
+      !description
+    ) {
+      return res.status(400).json({
+        message: "All required fields must be filled"
+      });
+    }
+
+    const job = await Job.create({
+      title,
       description,
+      company,
+      location,
+      salary,
+      experience,
+      jobType,
+      skills,
+      techSkills,
+      recruiterId,
+      status
     });
 
     res.status(201).json(job);
+
   } catch (error) {
-    res.status(500).json({ message: "Error creating job", error });
+    res.status(500).json({ error });
   }
 };
 
+// Update job
 export const updateJob = async (req: Request, res: Response) => {
   try {
-    const jobId = Number(req.params.id);
 
-    const job = await Job.findByPk(jobId);
+    const id = Number(req.params.id);
+
+    const job = await Job.findByPk(id);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
@@ -57,17 +100,20 @@ export const updateJob = async (req: Request, res: Response) => {
 
     await job.update(req.body);
 
-    res.status(200).json(job);
+    res.json(job);
+
   } catch (error) {
-    res.status(500).json({ message: "Error updating job", error });
+    res.status(500).json({ error });
   }
 };
 
+// Delete job
 export const deleteJob = async (req: Request, res: Response) => {
   try {
-    const jobId = Number(req.params.id);
 
-    const job = await Job.findByPk(jobId);
+    const id = Number(req.params.id);
+
+    const job = await Job.findByPk(id);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
@@ -75,8 +121,27 @@ export const deleteJob = async (req: Request, res: Response) => {
 
     await job.destroy();
 
-    res.status(200).json({ message: "Job deleted successfully" });
+    res.json({ message: "Job deleted successfully" });
+
   } catch (error) {
-    res.status(500).json({ message: "Error deleting job", error });
+    res.status(500).json({ error });
+  }
+};
+
+// Recruiter job list
+export const getRecruiterJobs = async (req: Request, res: Response) => {
+  try {
+
+    const recruiterId = Number(req.query.recruiterId);
+
+    const jobs = await Job.findAll({
+      where: { recruiterId },
+      order: [["createdAt", "DESC"]]
+    });
+
+    res.json(jobs);
+
+  } catch (error) {
+    res.status(500).json({ error });
   }
 };
