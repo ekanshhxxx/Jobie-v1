@@ -2,29 +2,27 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
 import { getUser, clearAuth } from '../lib/api';
+
+const subscribeToHydration = () => () => {};
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<ReturnType<typeof getUser>>(null);
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const user = mounted ? getUser() : null;
 
-  useEffect(() => {
-    setMounted(true);
-    setUser(getUser());
-  }, [pathname]);
+  const isActivePath = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
 
   const logout = () => {
     clearAuth();
-    setUser(null);
     router.push('/login');
   };
 
-  const isDark = resolvedTheme === 'dark';
+  const isDark = mounted && resolvedTheme === 'dark';
 
   return (
     /* Outer bar � light: EFF6FF tint, dark: full DarkVeil canvas behind */
@@ -50,12 +48,24 @@ export default function Navbar() {
         {user ? (
           <>
             <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600 dark:text-white/70">
-              <Link href="/dashboard" className="hover:text-[#2563EB] dark:hover:text-white transition">Dashboard</Link>
-              <Link href="/jobs" className="hover:text-[#2563EB] dark:hover:text-white transition">Jobs</Link>
-              {user.role === 'candidate' && (
+              {user.role === 'admin' ? (
+                <Link
+                  href="/admin"
+                  className={`transition font-mono tracking-wide ${isActivePath('/admin') ? 'text-[#33ff00]' : 'text-[#1f521f] hover:text-[#33ff00]'}`}
+                  style={{ textShadow: isActivePath('/admin') ? '0 0 6px rgba(51,255,0,0.5)' : 'none' }}
+                >
+                  ADMIN_TERMINAL
+                </Link>
+              ) : (
                 <>
-                  <Link href="/profile" className="hover:text-[#2563EB] dark:hover:text-white transition">Profile</Link>
-                  <Link href="/resume" className="hover:text-[#2563EB] dark:hover:text-white transition">Resume AI</Link>
+                  <Link href="/dashboard" className={`transition ${isActivePath('/dashboard') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Dashboard</Link>
+                  <Link href="/jobs" className={`transition ${isActivePath('/jobs') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Jobs</Link>
+                  {user.role === 'candidate' && (
+                    <>
+                      <Link href="/profile" className={`transition ${isActivePath('/profile') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Profile</Link>
+                      <Link href="/resume" className={`transition ${isActivePath('/resume') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Resume AI</Link>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -82,7 +92,7 @@ export default function Navbar() {
         ) : (
           <>
             <div className="hidden md:flex items-center gap-7 text-sm font-medium">
-              <Link href="/" className="text-[#2563EB] dark:text-violet-400 font-semibold">Home</Link>
+              <Link href="/" className={isActivePath('/') ? 'text-[#2563EB] dark:text-violet-400 font-semibold' : 'text-gray-500 dark:text-white/60 hover:text-[#2563EB] dark:hover:text-white transition'}>Home</Link>
               <a href="#how-it-works" className="text-gray-500 dark:text-white/60 hover:text-[#2563EB] dark:hover:text-white transition">How it Works</a>
               <a href="#services" className="text-gray-500 dark:text-white/60 hover:text-[#2563EB] dark:hover:text-white transition">About Us</a>
               <a href="#contact" className="text-gray-500 dark:text-white/60 hover:text-[#2563EB] dark:hover:text-white transition">Contact</a>

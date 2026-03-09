@@ -93,6 +93,7 @@ export default function JobsPage() {
         requiredSkills: newJob.requiredSkills.split(',').map(s => s.trim()).filter(Boolean),
         techStack: newJob.techStack.split(',').map(s => s.trim()).filter(Boolean),
         recruiterId: u?.id,
+        status: 'pending',
       });
       setShowPostForm(false);
       setNewJob({ title: '', company: '', location: '', salary: '', description: '', requiredSkills: '', techStack: '', experienceLevel: 'mid' });
