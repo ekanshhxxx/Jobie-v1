@@ -41,9 +41,7 @@ afterAll(async () => {
   await sequelize.close();
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
 // PHASE 1 — AUTH
-// ═════════════════════════════════════════════════════════════════════════════
 describe("Phase 1 — Auth: Registration", () => {
   it("[1] should register a candidate and return JWT + user object", async () => {
     const res = await request(app)
@@ -139,9 +137,8 @@ describe("Phase 1 — Auth: Token Protection", () => {
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
 // PHASE 1 — PROFILE
-// ═════════════════════════════════════════════════════════════════════════════
+
 describe("Phase 1 — Profile: Create", () => {
   it("[11] should return 404 when getting a profile that does not exist yet", async () => {
     // Re-login to get userId from token, try a high userId
@@ -249,9 +246,9 @@ describe("Phase 1 — Profile: Read & Update", () => {
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
+
 // PHASE 1 — JOBS
-// ═════════════════════════════════════════════════════════════════════════════
+
 describe("Phase 1 — Jobs: CRUD", () => {
   it("[17] should create a job with requiredSkills and techStack", async () => {
     const res = await request(app)
@@ -306,9 +303,8 @@ describe("Phase 1 — Jobs: CRUD", () => {
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
 // PHASE 1 — APPLICATIONS
-// ═════════════════════════════════════════════════════════════════════════════
+
 describe("Phase 1 — Applications: Apply & Status Pipeline", () => {
   it("[22] should apply for a job with status=applied", async () => {
     const loginRes = await request(app)
@@ -392,9 +388,8 @@ describe("Phase 1 — Applications: Apply & Status Pipeline", () => {
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
 // PHASE 2 — MATCH ENGINE
-// ═════════════════════════════════════════════════════════════════════════════
+
 describe("Phase 2 — Match Engine: Score", () => {
   it("[28] should return match score with matched and missing skills", async () => {
     const loginRes = await request(app)
