@@ -45,6 +45,13 @@ export default function Navbar() {
           Messages
         </Link>
 
+        <Link
+          href="/resume-parser"
+          className="hover:text-blue-600 transition-colors duration-200"
+        >
+          Resume Parser
+        </Link>
+
       </div>
 
       {/* Action Buttons */}
