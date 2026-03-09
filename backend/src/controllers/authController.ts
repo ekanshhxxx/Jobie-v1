@@ -1,74 +1,62 @@
 import { Request, Response } from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { db } from "../config/db";
+import User from "../models/User";
 
+const JWT_SECRET = process.env.JWT_SECRET || "jobie_secret";
 
-// Register
 export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // check if user already exists
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-    if ((rows as any[]).length > 0) {
-      return res.status(400).json({ message: "User already exists" });
+    const existing = await User.findOne({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
     }
 
-    // hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashed, role: role || "candidate" });
 
-    // insert user (role optional, default 'user')
-    await db.query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", [
-      name,
-      email,
-      hashedPassword,
-      role || "user",
-    ]);
+    const token = jwt.sign(
+      { id: (user as any).id, role: (user as any).role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    res.status(201).json({ message: "User registered successfully" });
+    res.status(201).json({
+      token,
+      user: { id: (user as any).id, name: (user as any).name, email: (user as any).email, role: (user as any).role }
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error registering user", error });
+    res.status(500).json({ message: "Registration failed", error });
   }
 };
 
-// Login
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // find user
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-    const user = (rows as any[])[0];
+    const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    const valid = await bcrypt.compare(password, (user as any).password);
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // generate JWT with role
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "1h" }
+      { id: (user as any).id, role: (user as any).role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
     );
 
-    res.json({ token, role: user.role });
+    res.status(200).json({
+      token,
+      user: { id: (user as any).id, name: (user as any).name, email: (user as any).email, role: (user as any).role }
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error logging in", error });
-  }
-};
-
-// Profile
-export const profile = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user; // user set by middleware
-    res.json({ user });
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching profile", error });
+    res.status(500).json({ message: "Login failed", error });
   }
 };

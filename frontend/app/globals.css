@@ -1,35 +1,72 @@
 @import "tailwindcss";
 
-:root {
+@custom-variant dark (&:where(.dark, .dark *));
 
-  /* Background */
-  --background: #FFFFFF;
-  --card-background: #F8FAFC;
-  --border: #E5E7EB;
+/* ── Newsprint design system utilities ──────────────────────────── */
+.np-serif  { font-family: var(--font-playfair), 'Times New Roman', serif; }
+.np-body   { font-family: var(--font-lora), Georgia, serif; }
+.np-mono   { font-family: var(--font-jetbrains), 'Courier New', monospace; }
 
-  /* Text */
-  --foreground: #111827;
-  --secondary-text: #6B7280;
-
-  /* Brand */
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
-
-  /* Status */
-  --pending: #F59E0B;
-  --accepted: #10B981;
-  --rejected: #EF4444;
+.np-dot-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23111111' fill-opacity='0.04' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.np-ticker-track {
+  animation: npTicker 40s linear infinite;
+  will-change: transform;
+}
+.np-ticker-wrap:hover .np-ticker-track {
+  animation-play-state: paused;
+}
+@keyframes npTicker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.np-img {
+  filter: grayscale(100%);
+  transition: filter 0.35s ease, transform 0.45s ease;
+}
+.np-img:hover { filter: grayscale(20%) sepia(35%); }
+.np-card:hover .np-img { transform: scale(1.05); }
+
+.np-drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-playfair), 'Times New Roman', serif;
+  font-size: 4.8rem;
+  font-weight: 900;
+  line-height: 0.8;
+  margin-right: 0.06em;
+  margin-top: 0.08em;
+  color: #111111;
+}
+/* ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --background: #ffffff;
+  --foreground: #111827;
+}
+
+.dark {
+  --background: #060610;
+  --foreground: #f0f0ff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.2s ease;
 }

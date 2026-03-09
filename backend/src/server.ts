@@ -1,37 +1,47 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import sequelize from "./config/database";
+import "./models";
+import jobRoutes from "./routes/jobRoutes";
+import applicationRoutes from "./routes/applicationRoutes";
 import authRoutes from "./routes/authRoutes";
-import { db } from "./config/db"; // ✅ DB import
+import profileRoutes from "./routes/profileRoutes";
+import matchRoutes from "./routes/matchRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import githubRoutes from "./routes/githubRoutes";
+import resumeRoutes from "./routes/resumeRoutes";
 
 dotenv.config();
+
 const app = express();
 
-// ✅ Check env values
-console.log("Loaded DB Config:", {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-});
-
-// Middleware
 app.use(cors());
 app.use(express.json());
-
-// Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/match", matchRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/github", githubRoutes);
+app.use("/api/resume", resumeRoutes);
 
-// ✅ DB connection test
-(async () => {
-  try {
-    const [rows] = await db.query("SELECT 1");
-    console.log("✅ Database connected successfully");
-  } catch (err) {
-    console.error("❌ Database connection failed:", err);
-  }
-})();
+app.get("/", (req, res) => {
+  res.send("Jobie API running");
+});
 
-// Server start
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+const PORT = Number(process.env.PORT) || 5000;
+
+sequelize
+  .sync()
+  .then(() => {
+    console.log("Database synced");
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Database error:", err);
+  });

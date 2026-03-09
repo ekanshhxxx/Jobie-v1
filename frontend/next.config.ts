@@ -1,13 +1,14 @@
-import { NextConfig } from "next";
-import path from "path";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  webpack(config) {
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      "@": path.resolve(__dirname), // @ points to project root
-    };
-    return config;
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**' },
+    ],
+    unoptimized: true,
+  },
+  experimental: {
+    optimizePackageImports: ['framer-motion', 'lucide-react', 'react-icons'],
   },
 };
 
