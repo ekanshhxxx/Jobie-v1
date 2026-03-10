@@ -6,14 +6,43 @@ import Job from "../models/Job";
 import Application from "../models/Application";
 import Profile from "../models/Profile";
 
+// ─── PATCH /api/admin/jobs/:id/approve ──────────────────────────────────────
+export const approveJob = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = Number(req.params.id);
+    const job = await Job.findByPk(jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    await job.update({ status: "approved" });
+    res.status(200).json({ message: "Job approved", jobId, status: "approved" });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving job", error });
+  }
+};
+
+// ─── PATCH /api/admin/jobs/:id/reject ───────────────────────────────────────
+export const rejectJob = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = Number(req.params.id);
+    const job = await Job.findByPk(jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    await job.update({ status: "rejected" });
+    res.status(200).json({ message: "Job rejected", jobId, status: "rejected" });
+  } catch (error) {
+    res.status(500).json({ message: "Error rejecting job", error });
+  }
+};
+
 // ─── GET /api/admin/stats ─────────────────────────────────────────────────────
 // Platform-wide dashboard numbers
 export const getStats = async (_req: AuthRequest, res: Response) => {
   try {
-    const [totalUsers, totalJobs, totalApplications, candidates, recruiters, admins] =
+    const [totalUsers, totalJobs, pendingJobs, approvedJobs, rejectedJobs, totalApplications, candidates, recruiters, admins] =
       await Promise.all([
         User.count(),
         Job.count(),
+        Job.count({ where: { status: "pending" } }),
+        Job.count({ where: { status: "approved" } }),
+        Job.count({ where: { status: "rejected" } }),
         Application.count(),
         User.count({ where: { role: "candidate" } }),
         User.count({ where: { role: "recruiter" } }),
@@ -32,7 +61,7 @@ export const getStats = async (_req: AuthRequest, res: Response) => {
 
     res.status(200).json({
       users: { total: totalUsers, candidates, recruiters, admins },
-      jobs: { total: totalJobs },
+      jobs: { total: totalJobs, pending: pendingJobs, approved: approvedJobs, rejected: rejectedJobs },
       applications: {
         total: totalApplications,
         byStatus: statusCounts
@@ -138,11 +167,12 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
 };
 
 // ─── GET /api/admin/jobs ──────────────────────────────────────────────────────
-// All jobs with recruiter info; optional ?recruiterId filter
+// All jobs with recruiter info; optional ?recruiterId and ?status filters
 export const getAllJobsAdmin = async (req: AuthRequest, res: Response) => {
   try {
     const where: any = {};
     if (req.query.recruiterId) where.recruiterId = Number(req.query.recruiterId);
+    if (req.query.status) where.status = req.query.status;
 
     const jobs = await Job.findAll({
       where,
@@ -213,5 +243,29 @@ export const searchUsers = async (req: AuthRequest, res: Response) => {
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: "Error searching users", error });
+  }
+};
+
+// ─── PATCH /api/admin/users/:id/ban  (added 2026-03-09) ──────────────────────
+export const banUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findByPk(Number(req.params.id));
+    if (!user) return res.status(404).json({ message: "User not found" });
+    await (user as any).update({ banned: true });
+    res.status(200).json({ message: "User banned" });
+  } catch (error) {
+    res.status(500).json({ message: "Error banning user", error });
+  }
+};
+
+// ─── PATCH /api/admin/users/:id/unban ────────────────────────────────────────
+export const unbanUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findByPk(Number(req.params.id));
+    if (!user) return res.status(404).json({ message: "User not found" });
+    await (user as any).update({ banned: false });
+    res.status(200).json({ message: "User unbanned" });
+  } catch (error) {
+    res.status(500).json({ message: "Error unbanning user", error });
   }
 };

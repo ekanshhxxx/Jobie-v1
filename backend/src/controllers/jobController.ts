@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import Job from "../models/Job";
 
-// Get all jobs
+// Get all jobs — public view shows approved only
 export const getAllJobs = async (req: Request, res: Response) => {
   try {
-    const jobs = await Job.findAll();
+    const jobs = await Job.findAll({ where: { status: "approved" } });
     res.status(200).json(jobs);
   } catch (error) {
     res.status(500).json({ message: "Error fetching jobs", error });

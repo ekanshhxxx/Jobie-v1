@@ -48,6 +48,11 @@ const Job = sequelize.define("Job", {
   recruiterId: {
     type: DataTypes.INTEGER,
     allowNull: true
+  },
+
+  status: {
+    type: DataTypes.ENUM("pending", "approved", "rejected"),
+    defaultValue: "approved"
   }
 });
 

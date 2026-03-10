@@ -26,9 +26,9 @@ export default function LoginPage() {
         type: 'success',
         emoji: '👋',
         title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-        message: 'You are now signed in. Redirecting to your dashboard…',
+        message: 'You are now signed in. Redirecting…',
       });
-      router.push('/dashboard');
+      router.push(data.user?.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       setError(msg);

@@ -27,6 +27,12 @@ const User = sequelize.define("User", {
   role: {
     type: DataTypes.ENUM("candidate", "recruiter", "admin"),
     defaultValue: "candidate"
+  },
+
+  banned: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
   }
 });
 
