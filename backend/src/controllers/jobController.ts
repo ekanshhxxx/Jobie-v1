@@ -134,14 +134,24 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
 
     const recruiterId = Number(req.query.recruiterId);
 
+    // validation
+    if (!recruiterId || isNaN(recruiterId)) {
+      return res.status(400).json({
+        message: "Valid recruiterId query parameter is required"
+      });
+    }
+
     const jobs = await Job.findAll({
       where: { recruiterId },
       order: [["createdAt", "DESC"]]
     });
 
-    res.json(jobs);
+    res.status(200).json(jobs);
 
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({
+      message: "Error fetching recruiter jobs",
+      error
+    });
   }
 };
