@@ -29,7 +29,7 @@ export default function JobCard({ job }: { job: Job }) {
       </div>
 
       <Link
-        href={`/jobs/${job.id}`}
+        href={`/candidate/jobs/${job.id}`}
         className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
       >
         View Job
