@@ -16,22 +16,22 @@ export default function Sidebar() {
     {
       name: "Dashboard",
       icon: LayoutDashboard,
-      path: "/dashboard",
+      path: "/recruiter/dashboard",
     },
     {
       name: "Post Job",
       icon: PlusSquare,
-      path: "/post-job",
+      path: "/recruiter/post-job",
     },
     {
       name: "Manage Jobs",
       icon: Briefcase,
-      path: "/manage-jobs",
+      path: "/recruiter/manage-jobs",
     },
     {
       name: "Applications",
       icon: FileText,
-      path: "/applications",
+      path: "/recruiter/applications",
     },
   ];
 
@@ -61,13 +61,11 @@ export default function Sidebar() {
                 key={item.name}
                 onClick={() => router.push(item.path)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition
-
                   ${
                     active
                       ? "bg-blue-50 text-[#2563EB]"
                       : "text-[#6B7280] hover:bg-[#F8FAFC] hover:text-[#2563EB]"
                   }
-                  
                 `}
               >
 
@@ -95,7 +93,7 @@ export default function Sidebar() {
         <div>
 
           <p className="text-[#111827] font-medium">
-            John 
+            John
           </p>
 
           <p className="text-sm text-[#6B7280]">

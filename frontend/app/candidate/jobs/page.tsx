@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getJobs } from "../../services/jobService"
-import { Job } from "../../types/Job"
-import JobCard from "../../components/JobCard"
+import { getJobs } from "../../../services/jobService"
+import { Job } from "../../../types/Job"
+import JobCard from "../../../components/JobCard"
 
 export default function JobsPage() {
 

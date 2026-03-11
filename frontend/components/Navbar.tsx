@@ -7,7 +7,7 @@ export default function Navbar() {
     <nav className="w-full bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
 
       {/* Logo */}
-      <Link href="/jobs" className="flex items-center gap-2 cursor-pointer">
+      <Link href="/candidate/jobs" className="flex items-center gap-2 cursor-pointer">
         <div className="w-8 h-8 bg-blue-600 rounded-md"></div>
         <span className="text-xl font-semibold text-slate-900">
           Jobie
@@ -18,35 +18,35 @@ export default function Navbar() {
       <div className="flex items-center gap-8 text-slate-600 font-medium">
 
         <Link
-          href="/jobs"
+          href="/candidate/jobs"
           className="hover:text-blue-600 transition-colors duration-200"
         >
           Find Jobs
         </Link>
 
         <Link
-          href="/companies"
+          href="/candidate/companies"
           className="hover:text-blue-600 transition-colors duration-200"
         >
           Companies
         </Link>
 
         <Link
-          href="/applications"
+          href="/candidate/applications"
           className="hover:text-blue-600 transition-colors duration-200"
         >
           Applications
         </Link>
 
         <Link
-          href="/messages"
+          href="/candidate/messages"
           className="hover:text-blue-600 transition-colors duration-200"
         >
           Messages
         </Link>
 
         <Link
-          href="/resume-parser"
+          href="/candidate/resume-parser"
           className="hover:text-blue-600 transition-colors duration-200"
         >
           Resume Parser
@@ -62,7 +62,7 @@ export default function Navbar() {
         </button>
 
         {/* Profile Avatar */}
-        <Link href="/dashboard">
+        <Link href="/candidate/dashboard">
           <div className="w-9 h-9 bg-slate-200 rounded-full cursor-pointer hover:bg-slate-300 transition duration-200"></div>
         </Link>
 
