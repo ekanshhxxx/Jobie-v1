@@ -143,9 +143,9 @@ export default function ManageJobs() {
   };
 
   const filteredJobs = jobs.filter((job) =>
-    job.title.toLowerCase().includes(search.toLowerCase()) ||
-    job.company.toLowerCase().includes(search.toLowerCase()) ||
-    job.location.toLowerCase().includes(search.toLowerCase())
+    job.title?.toLowerCase().includes(search.toLowerCase()) ||
+    job.company?.toLowerCase().includes(search.toLowerCase()) ||
+    job.location?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -198,112 +198,132 @@ export default function ManageJobs() {
 
             ) : (
 
-              filteredJobs.map((job) => (
+              filteredJobs.map((job) => {
 
-                <tr
-                  key={job.id}
-                  className="border-b border-[#E5E7EB] hover:bg-[#F8FAFC]"
-                >
+                const techSkills = job.techSkills
+                  ? job.techSkills.split(",").map((s:string)=>s.trim()).filter(Boolean)
+                  : [];
 
-                  {/* TITLE + POSTED TIME */}
+                const skills = job.skills
+                  ? job.skills.split(",").map((s:string)=>s.trim()).filter(Boolean)
+                  : [];
 
-                  <td className="p-4">
-                    <div className="font-medium">{job.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Posted {getTimeAgo(job.createdAt)}
-                    </div>
-                  </td>
+                return (
 
-                  <td className="p-4">{job.company}</td>
+                  <tr
+                    key={job.id}
+                    className="border-b border-[#E5E7EB] hover:bg-[#F8FAFC]"
+                  >
 
-                  {/* TECH SKILLS */}
+                    <td className="p-4">
+                      <div className="font-medium">{job.title}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Posted {getTimeAgo(job.createdAt)}
+                      </div>
+                    </td>
 
-                  <td className="p-4 text-sm">
-                    {job.techSkills
-                      ? job.techSkills.split(",").map((skill:string,index:number)=>(
-                          <div key={index} className="whitespace-nowrap">
-                            {skill.trim()}
-                          </div>
-                        ))
-                      : "-"
-                    }
-                  </td>
+                    <td className="p-4">{job.company}</td>
 
-                  {/* SKILLS */}
+                    {/* TECH SKILLS */}
 
-                  <td className="p-4 text-sm">
-                    {job.skills
-                      ? job.skills.split(",").map((skill:string,index:number)=>(
-                          <div key={index} className="whitespace-nowrap">
-                            {skill.trim()}
-                          </div>
-                        ))
-                      : "-"
-                    }
-                  </td>
+                    <td className="p-4 text-sm">
 
-                  <td className="p-4">{job.salary || "-"}</td>
+                      {techSkills.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {techSkills.map((skill:string,index:number)=>(
+                            <span
+                              key={index}
+                              className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      ) : "-"}
 
-                  <td className="p-4">{job.experience || "-"}</td>
+                    </td>
 
-                  <td className="p-4">{job.jobType || "-"}</td>
+                    {/* SKILLS */}
 
-                  <td className="p-4">{getStatusBadge(job.status)}</td>
+                    <td className="p-4 text-sm">
 
-                  {/* ACTION BUTTONS */}
+                      {skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {skills.map((skill:string,index:number)=>(
+                            <span
+                              key={index}
+                              className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      ) : "-"}
 
-                  <td className="p-4">
+                    </td>
 
-                    <div className="flex items-center justify-center gap-2">
+                    <td className="p-4">{job.salary || "-"}</td>
 
-                      <button
-                        onClick={() => editJob(job)}
-                        className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded"
-                      >
-                        Edit
-                      </button>
+                    <td className="p-4">{job.experience || "-"}</td>
 
-                      {job.status === "active" && (
+                    <td className="p-4">{job.jobType || "-"}</td>
+
+                    <td className="p-4">{getStatusBadge(job.status)}</td>
+
+                    <td className="p-4">
+
+                      <div className="flex items-center justify-center gap-2">
+
                         <button
-                          onClick={() => changeStatus(job.id,"closed")}
-                          className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded"
+                          onClick={() => editJob(job)}
+                          className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded"
                         >
-                          Close
+                          Edit
                         </button>
-                      )}
 
-                      {job.status === "draft" && (
+                        {job.status === "active" && (
+                          <button
+                            onClick={() => changeStatus(job.id,"closed")}
+                            className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded"
+                          >
+                            Close
+                          </button>
+                        )}
+
+                        {job.status === "draft" && (
+                          <button
+                            onClick={() => changeStatus(job.id,"active")}
+                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
+                          >
+                            Publish
+                          </button>
+                        )}
+
+                        {job.status === "closed" && (
+                          <button
+                            onClick={() => changeStatus(job.id,"active")}
+                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
+                          >
+                            Reopen
+                          </button>
+                        )}
+
                         <button
-                          onClick={() => changeStatus(job.id,"active")}
-                          className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
+                          onClick={() => confirmDelete(job.id)}
+                          className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded"
                         >
-                          Publish
+                          Delete
                         </button>
-                      )}
 
-                      {job.status === "closed" && (
-                        <button
-                          onClick={() => changeStatus(job.id,"active")}
-                          className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
-                        >
-                          Reopen
-                        </button>
-                      )}
+                      </div>
 
-                      <button
-                        onClick={() => confirmDelete(job.id)}
-                        className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded"
-                      >
-                        Delete
-                      </button>
+                    </td>
 
-                    </div>
+                  </tr>
 
-                  </td>
+                )
 
-                </tr>
-
-              ))
+              })
 
             )}
 
@@ -344,7 +364,7 @@ export default function ManageJobs() {
             <input
               className="border p-3 rounded-lg"
               value={editingJob.techSkills || ""}
-              placeholder="Tech Skills"
+              placeholder="Tech Skills (comma separated)"
               onChange={(e)=>
                 setEditingJob({ ...editingJob, techSkills:e.target.value })
               }
@@ -353,39 +373,15 @@ export default function ManageJobs() {
             <input
               className="border p-3 rounded-lg"
               value={editingJob.skills || ""}
-              placeholder="Skills"
+              placeholder="Skills (comma separated)"
               onChange={(e)=>
                 setEditingJob({ ...editingJob, skills:e.target.value })
               }
             />
 
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.salary}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, salary:e.target.value })
-              }
-            />
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.experience}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, experience:e.target.value })
-              }
-            />
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.jobType}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, jobType:e.target.value })
-              }
-            />
-
             <button
               onClick={updateJob}
-              className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg w-fit"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg w-fit"
             >
               Update Job
             </button>

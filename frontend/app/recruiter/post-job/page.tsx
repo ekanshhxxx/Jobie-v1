@@ -70,6 +70,15 @@ export default function PostJob() {
 
       setLoading(true);
 
+      // include last typed skill even if Enter wasn't pressed
+      const finalSkills = skillInput.trim()
+        ? [...skills, skillInput.trim()]
+        : skills;
+
+      const finalTechSkills = techInput.trim()
+        ? [...techSkills, techInput.trim()]
+        : techSkills;
+
       const jobData = {
         title,
         company,
@@ -80,8 +89,8 @@ export default function PostJob() {
         description,
         recruiterId: 1,
         status,
-        skills: skills.join(","),
-        techSkills: techSkills.join(",")
+        skills: finalSkills.join(", "),
+        techSkills: finalTechSkills.join(", ")
       };
 
       await fetch("http://localhost:4000/api/jobs/create",{
@@ -103,6 +112,8 @@ export default function PostJob() {
       setDescription("");
       setSkills([]);
       setTechSkills([]);
+      setSkillInput("");
+      setTechInput("");
       setStatus("active");
 
     } catch(error){
