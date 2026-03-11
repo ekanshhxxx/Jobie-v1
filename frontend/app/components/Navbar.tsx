@@ -1,5 +1,5 @@
 'use client';
-
+import { logout } from '../lib/auth';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';

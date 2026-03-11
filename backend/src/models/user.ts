@@ -1,33 +1,49 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-const User = sequelize.define("User", {
+class User extends Model {
+  public id!: number;
+  public name!: string;
+  public email!: string;
+  public password!: string | null; // firebase login ke liye optional
+  public role!: "candidate" | "recruiter" | "admin";
+  public firebaseUid!: string | null; // 🔹 add this
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+User.init({
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-
   name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-
   email: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true
   },
-
   password: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true // 🔹 allowNull true for Firebase users
   },
-
   role: {
     type: DataTypes.ENUM("candidate", "recruiter", "admin"),
     defaultValue: "candidate"
+  },
+  firebaseUid: { // 🔹 add this
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
   }
+}, {
+  sequelize,
+  tableName: "users",
+  timestamps: true
 });
 
 export default User;

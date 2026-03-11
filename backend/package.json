@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --watch --runInBand",
-    "dev": "ts-node-dev src/server.ts"
+    "dev": "ts-node-dev src/server.ts",
+    "seed:admins": "ts-node src/seeders/adminSeeder.ts"
   },
   "jest": {
     "preset": "ts-jest",
@@ -25,6 +26,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "firebase-admin": "^13.7.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "mysql2": "^3.18.2",
@@ -53,6 +55,7 @@
     "sequelize-cli": "^6.6.5",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }
