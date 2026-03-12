@@ -1,17 +1,18 @@
 "use client"
 
 import Link from "next/link"
+import { MessageCircle } from "lucide-react"
 
 export default function Navbar() {
   return (
     <nav className="w-full bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
 
       {/* Logo */}
-      <Link href="/candidate/jobs" className="flex items-center gap-2 cursor-pointer">
-        <div className="w-8 h-8 bg-blue-600 rounded-md"></div>
-        <span className="text-xl font-semibold text-slate-900">
-          Jobie
-        </span>
+      <Link
+        href="/candidate/jobs"
+        className="text-3xl font-bold text-blue-600"
+      >
+        Jobie
       </Link>
 
       {/* Navigation */}
@@ -19,51 +20,41 @@ export default function Navbar() {
 
         <Link
           href="/candidate/jobs"
-          className="hover:text-blue-600 transition-colors duration-200"
+          className="hover:text-blue-600 transition-colors"
         >
           Find Jobs
         </Link>
 
         <Link
-          href="/candidate/companies"
-          className="hover:text-blue-600 transition-colors duration-200"
-        >
-          Companies
-        </Link>
-
-        <Link
           href="/candidate/applications"
-          className="hover:text-blue-600 transition-colors duration-200"
+          className="hover:text-blue-600 transition-colors"
         >
           Applications
         </Link>
 
         <Link
-          href="/candidate/messages"
-          className="hover:text-blue-600 transition-colors duration-200"
-        >
-          Messages
-        </Link>
-
-        <Link
           href="/candidate/resume-parser"
-          className="hover:text-blue-600 transition-colors duration-200"
+          className="hover:text-blue-600 transition-colors"
         >
           Resume Parser
         </Link>
 
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-4">
+      {/* Right Section */}
+      <div className="flex items-center gap-6">
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-200">
-          Post a Job
-        </button>
+        {/* Message Icon */}
+        <Link
+          href="/candidate/messages"
+          className="text-slate-600 hover:text-blue-600 transition"
+        >
+          <MessageCircle size={22} />
+        </Link>
 
-        {/* Profile Avatar */}
+        {/* Profile */}
         <Link href="/candidate/dashboard">
-          <div className="w-9 h-9 bg-slate-200 rounded-full cursor-pointer hover:bg-slate-300 transition duration-200"></div>
+          <div className="w-9 h-9 bg-slate-200 rounded-full hover:bg-slate-300 transition"></div>
         </Link>
 
       </div>

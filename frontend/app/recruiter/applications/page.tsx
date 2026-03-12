@@ -15,7 +15,7 @@ export default function Applications() {
     try {
 
       const res = await fetch(
-        "http://localhost:4000/api/applications"
+        "http://localhost:4000/api/applications/recruiter/1"
       );
 
       const data = await res.json();
@@ -28,7 +28,6 @@ export default function Applications() {
 
   };
 
-  // Status badge colors
   const getStatusColor = (status: string) => {
 
     if (status === "accepted")
@@ -44,13 +43,9 @@ export default function Applications() {
 
     <div className="text-[#111827]">
 
-      {/* Page Title */}
-
       <h1 className="text-3xl font-bold mb-8">
         Job Applications
       </h1>
-
-      {/* Applications Table */}
 
       <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
 
@@ -72,14 +67,9 @@ export default function Applications() {
             {applications.length === 0 ? (
 
               <tr>
-
-                <td
-                  colSpan={4}
-                  className="text-center py-8 text-[#6B7280]"
-                >
+                <td colSpan={4} className="text-center py-8 text-[#6B7280]">
                   No applications yet
                 </td>
-
               </tr>
 
             ) : (
@@ -126,6 +116,5 @@ export default function Applications() {
       </div>
 
     </div>
-
   );
 }
