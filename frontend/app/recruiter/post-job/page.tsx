@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { currentUser } from "@/lib/user";
 
 export default function PostJob() {
 
@@ -87,7 +88,7 @@ export default function PostJob() {
         experience,
         jobType,
         description,
-        recruiterId: 1,
+        recruiterId: currentUser.id,
         status,
         skills: finalSkills.join(", "),
         techSkills: finalTechSkills.join(", ")

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Header from "../../../components/Header";
+import { currentUser } from "@/lib/user";
 
 export default function ManageJobs() {
 
@@ -20,8 +21,8 @@ export default function ManageJobs() {
       setLoading(true);
 
       const res = await fetch(
-        "http://localhost:4000/api/jobs/recruiter?recruiterId=1"
-      );
+  `http://localhost:4000/api/jobs/recruiter?recruiterId=${currentUser.id}`
+);
 
       const data = await res.json();
 

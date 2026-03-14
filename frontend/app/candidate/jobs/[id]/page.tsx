@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Job } from "@/types/Job"
+import { currentUser } from "@/lib/user";
 
 export default function JobDetailsPage() {
   const { id } = useParams()
@@ -27,7 +28,7 @@ export default function JobDetailsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: 1,
+          userId: currentUser.id,
           jobId: id,
         }),
       }

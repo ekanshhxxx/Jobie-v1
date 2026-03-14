@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { currentUser } from "@/lib/user";
 
 interface Application {
   id: number
@@ -13,7 +14,7 @@ export default function DashboardPage() {
   const [applications, setApplications] = useState<Application[]>([])
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/applications/user/1")
+    fetch("http://localhost:4000/api/applications/user/${currentUser.id}")
       .then((res) => res.json())
       .then((data) => setApplications(data))
   }, [])

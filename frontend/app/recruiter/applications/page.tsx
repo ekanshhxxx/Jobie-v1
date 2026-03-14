@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { currentUser } from "@/lib/user";
 
 export default function Applications() {
 
@@ -11,21 +12,40 @@ export default function Applications() {
   }, []);
 
   const fetchApplications = async () => {
-
     try {
 
-      const res = await fetch(
-        "http://localhost:4000/api/applications/recruiter/1"
+      // 1️⃣ get recruiter jobs
+      const jobsRes = await fetch(
+        `http://localhost:4000/api/jobs/recruiter?recruiterId=${currentUser.id}`
       );
 
-      const data = await res.json();
+      const jobs = await jobsRes.json();
 
-      setApplications(data);
+      let allApplications: any[] = [];
+
+      // 2️⃣ get applications for each job
+      for (const job of jobs) {
+
+        const res = await fetch(
+          `http://localhost:4000/api/applications/job/${job.id}`
+        );
+
+        const apps = await res.json();
+
+        // attach job title
+        const appsWithJob = apps.map((app: any) => ({
+          ...app,
+          jobTitle: job.title
+        }));
+
+        allApplications = [...allApplications, ...appsWithJob];
+      }
+
+      setApplications(allApplications);
 
     } catch (error) {
       console.log(error);
     }
-
   };
 
   const getStatusColor = (status: string) => {
@@ -56,7 +76,7 @@ export default function Applications() {
             <tr>
               <th className="p-4 text-left">Candidate</th>
               <th className="p-4 text-left">Email</th>
-              <th className="p-4 text-left">Job ID</th>
+              <th className="p-4 text-left">Job Title</th>
               <th className="p-4 text-left">Status</th>
             </tr>
 
@@ -90,7 +110,7 @@ export default function Applications() {
                   </td>
 
                   <td className="p-4">
-                    {app.jobId}
+                    {app.jobTitle}
                   </td>
 
                   <td className="p-4">
