@@ -1,5 +1,5 @@
-'use client';
-
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, getUser } from '../lib/api';
 
@@ -27,7 +27,7 @@ type NewJob = {
   experienceLevel: string;
 };
 
-const levelColors = {
+const levelColors: { [key: string]: string } = {
   junior: 'bg-green-100 text-green-700',
   mid: 'bg-blue-100 text-blue-700',
   senior: 'bg-purple-100 text-purple-700',
@@ -36,7 +36,6 @@ const levelColors = {
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [applying, setApplying] = useState<number | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [user, setUser] = useState<{ id: number; name: string; role: string } | null>(null);
   const [showPostForm, setShowPostForm] = useState(false);
@@ -65,21 +64,6 @@ export default function JobsPage() {
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const apply = async (jobId: number) => {
-    const u = getUser();
-    if (!u) { setMessage({ text: 'Please log in to apply', ok: false }); return; }
-    setApplying(jobId);
-    setMessage(null);
-    try {
-      await api.post('/api/applications/apply', { jobId, userId: u.id });
-      setMessage({ text: '✅ Application submitted!', ok: true });
-    } catch (err: unknown) {
-      setMessage({ text: err instanceof Error ? err.message : 'Failed to apply', ok: false });
-    } finally {
-      setApplying(null);
     }
   };
 
@@ -234,48 +218,24 @@ export default function JobsPage() {
       ) : (
         <div className="space-y-4">
           {filtered.map((job) => (
-            <div
-              key={job.id}
-              className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-gray-200 transition"
-            >
-              <div className="flex items-start justify-between gap-4">
+            <Link href={`/jobs/${job.id}`} key={job.id} className="block bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-gray-200 transition">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2.5 flex-wrap mb-1">
-                    <h3 className="font-semibold text-gray-900">{job.title}</h3>
+                    <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${levelColors[job.experienceLevel] ?? 'bg-gray-100 text-gray-600'}`}>
                       {job.experienceLevel}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 truncate">
                     {job.company}
                     {job.location && ` · ${job.location}`}
                     {job.salary && ` · ${job.salary}`}
                   </p>
-                  {job.description && (
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">{job.description}</p>
-                  )}
-                  {job.requiredSkills?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {job.requiredSkills.slice(0, 8).map((s) => (
-                        <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
-
-                {user?.role === 'candidate' && (
-                  <button
-                    onClick={() => apply(job.id)}
-                    disabled={applying === job.id}
-                    className="shrink-0 bg-indigo-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition font-medium"
-                  >
-                    {applying === job.id ? 'Applying...' : 'Apply'}
-                  </button>
-                )}
+                <ChevronRight className="text-gray-400 shrink-0" />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

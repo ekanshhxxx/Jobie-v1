@@ -19,6 +19,51 @@ const Profile = sequelize.define("Profile", {
     allowNull: true
   },
 
+  headline: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  location: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  website: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  linkedin: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  birthday: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  gender: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  avatarUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  resumeUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
   skills: {
     type: DataTypes.JSON,
     defaultValue: []

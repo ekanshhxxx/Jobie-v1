@@ -1,4 +1,5 @@
 const BASE_URL = 'http://localhost:5000';
+export const API_BASE_URL = BASE_URL;
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -48,8 +49,13 @@ export const api = {
 export async function uploadFile(path: string, formData: FormData) {
   const token = getToken();
   const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
+  // IMPORTANT: Do NOT set Content-Type for FormData.
+  // The browser will automatically set it to multipart/form-data
+  // with the correct boundary.
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
     headers,

@@ -32,7 +32,10 @@ export const verifyAndSave = async (req: Request, res: Response) => {
     const profile = await Profile.findOne({ where: { userId } });
     if (!profile) return res.status(404).json({ message: "Profile not found" });
 
-    const githubUsername = (profile as any).githubUsername;
+    const rawUsername = (profile as any).githubUsername;
+    const githubUsername = typeof rawUsername === "string"
+      ? rawUsername.trim().replace(/^@+/, "")
+      : "";
     if (!githubUsername) {
       return res.status(400).json({ message: "No GitHub username set on this profile. Update profile first." });
     }

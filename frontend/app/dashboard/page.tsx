@@ -127,7 +127,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/profile"
+            href="/profile/edit"
             className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium"
           >
             Go to Profile
@@ -200,7 +200,7 @@ export default function DashboardPage() {
       {user?.role === 'candidate' && (
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
           {[
-            { href: '/profile', label: '👤 Edit Profile', desc: 'Update your info & verify GitHub' },
+            { href: '/profile/edit', label: '👤 Edit Profile', desc: 'Update your info & verify GitHub' },
             { href: '/resume', label: '🤖 Parse Resume', desc: 'AI-powered resume analysis' },
             { href: '/jobs', label: '💼 Browse Jobs', desc: 'Find your next opportunity' },
           ].map(link => (

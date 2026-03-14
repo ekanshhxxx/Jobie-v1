@@ -21,12 +21,24 @@ const User = sequelize.define("User", {
 
   password: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true
   },
 
   role: {
     type: DataTypes.ENUM("candidate", "recruiter", "admin"),
     defaultValue: "candidate"
+  },
+
+  firebaseUid: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
+  },
+
+  githubUid: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
   },
 
   banned: {

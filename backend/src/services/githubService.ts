@@ -146,14 +146,18 @@ function getGitHubClient() {
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 export async function analyseGitHubProfile(username: string): Promise<GitHubAnalysis> {
+  const cleanUsername = username.trim().replace(/^@+/, "");
+  if (!cleanUsername) {
+    throw new Error("GitHub username is required");
+  }
   const client = getGitHubClient();
 
   // 1. Verify user exists
-  const { data: user } = await client.get(`/users/${username}`);
+  const { data: user } = await client.get(`/users/${encodeURIComponent(cleanUsername)}`);
 
   // 2. Fetch repos (up to 100 most recently pushed)
   const { data: repos } = await client.get<GitHubRepo[]>(
-    `/users/${username}/repos?per_page=100&sort=pushed&type=owner`
+    `/users/${encodeURIComponent(cleanUsername)}/repos?per_page=100&sort=pushed&type=owner`
   );
 
   // Filter out forks
@@ -231,7 +235,7 @@ export async function analyseGitHubProfile(username: string): Promise<GitHubAnal
   const totalStars = ownRepos.reduce((acc, r) => acc + r.stargazers_count, 0);
 
   return {
-    username,
+    username: cleanUsername,
     profileUrl: user.html_url,
     publicRepos: ownRepos.length,
     totalStars,

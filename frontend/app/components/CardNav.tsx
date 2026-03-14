@@ -51,7 +51,7 @@ const navItems: CardNavItem[] = [
     textLight: '#4a2d8a',
     links: [
       { label: 'Learning Paths', href: '/dashboard', ariaLabel: 'Learning Paths' },
-      { label: 'Skill Gaps', href: '/profile', ariaLabel: 'Skill Gap Analysis' },
+      { label: 'Skill Gaps', href: '/profile/edit', ariaLabel: 'Skill Gap Analysis' },
     ],
   },
 ];
@@ -76,6 +76,9 @@ export default function CardNav() {
   }, [pathname]);
 
   const isDark = mounted && resolvedTheme === 'dark';
+  const profileHref = user
+    ? (user.role === 'candidate' ? `/profile/${user.id}` : `/profile/${user.id}`)
+    : '/login';
 
   const logout = () => {
     const name = user?.name?.split(' ')[0] ?? 'User';
@@ -239,7 +242,7 @@ export default function CardNav() {
                   <Link href="/jobs" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Jobs</Link>
                   {user.role === 'candidate' && (
                     <>
-                      <Link href="/profile" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Profile</Link>
+                      <Link href="/profile/edit" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Profile</Link>
                       <Link href="/resume" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Resume AI</Link>
                     </>
                   )}
@@ -273,7 +276,12 @@ export default function CardNav() {
               )}
               {user ? (
                 <>
-                  <span className="text-sm font-medium text-gray-700 dark:text-white/80 hidden sm:block">{user.name}</span>
+                  <Link
+                    href={profileHref}
+                    className="text-sm font-medium text-gray-700 dark:text-white/80 hidden sm:block hover:text-[#2563EB] dark:hover:text-white transition"
+                  >
+                    {user.name}
+                  </Link>
                   <span className="text-xs bg-[#2563EB]/10 text-[#2563EB] dark:bg-violet-400/20 dark:text-violet-300 px-2.5 py-1 rounded-full font-medium hidden sm:block">{user.role}</span>
                   <button
                     onClick={logout}

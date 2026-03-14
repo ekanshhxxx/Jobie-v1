@@ -14,6 +14,9 @@ export default function Navbar() {
   const { setTheme, resolvedTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const user = mounted ? getUser() : null;
+  const profileHref = user
+    ? (user.role === 'candidate' ? `/profile/${user.id}` : `/profile/${user.id}`)
+    : '/login';
 
   const isActivePath = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
 
@@ -62,7 +65,7 @@ export default function Navbar() {
                   <Link href="/jobs" className={`transition ${isActivePath('/jobs') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Jobs</Link>
                   {user.role === 'candidate' && (
                     <>
-                      <Link href="/profile" className={`transition ${isActivePath('/profile') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Profile</Link>
+                      <Link href="/profile/edit" className={`transition ${isActivePath('/profile') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Profile</Link>
                       <Link href="/resume" className={`transition ${isActivePath('/resume') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Resume AI</Link>
                     </>
                   )}
@@ -70,7 +73,12 @@ export default function Navbar() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700 dark:text-white/80 hidden sm:block">{user.name}</span>
+              <Link
+                href={profileHref}
+                className="text-sm font-medium text-gray-700 dark:text-white/80 hidden sm:block hover:text-[#2563EB] dark:hover:text-white transition"
+              >
+                {user.name}
+              </Link>
               <span className="text-xs bg-[#2563EB]/10 text-[#2563EB] dark:bg-violet-400/20 dark:text-violet-300 px-3 py-1 rounded-full font-medium">{user.role}</span>
               {mounted && (
                 <button

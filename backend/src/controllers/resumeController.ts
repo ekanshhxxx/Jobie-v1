@@ -139,6 +139,13 @@ export const parseAndSaveToProfile = async (req: Request, res: Response) => {
     const merged = { ...(profile as any).dataValues, ...updateData };
     let completeness = 0;
     if (merged.bio) completeness += 10;
+    if (merged.headline) completeness += 5;
+    if (merged.location) completeness += 5;
+    if (merged.phone) completeness += 5;
+    if (merged.website) completeness += 5;
+    if (merged.linkedin) completeness += 5;
+    if (merged.avatarUrl) completeness += 5;
+    if (merged.resumeUrl) completeness += 5;
     if (merged.skills?.length > 0) completeness += 20;
     if (merged.experience?.length > 0) completeness += 20;
     if (merged.education?.length > 0) completeness += 15;
