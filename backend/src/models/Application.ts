@@ -19,8 +19,11 @@ const Application = sequelize.define("Application", {
   },
 
   status: {
-    type: DataTypes.ENUM("pending", "accepted", "rejected"),
-    defaultValue: "pending"
+    type: DataTypes.ENUM(
+      "applied", "shortlisted", "interview_scheduled", "interview_done",
+      "offer_sent", "offer_accepted", "offer_rejected", "hired", "rejected"
+    ),
+    defaultValue: "applied"
   }
 });
 

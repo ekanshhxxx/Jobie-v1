@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import Application from "../models/Application";
 import Job from "../models/Job";
 
-/* Apply for a job */
+/* ---------------- Apply for a job (Candidate) ---------------- */
 
 export const applyJob = async (req: Request, res: Response) => {
   try {
@@ -27,7 +27,7 @@ export const applyJob = async (req: Request, res: Response) => {
 };
 
 
-/* Get applications by user */
+/* ---------------- Get applications by user (Candidate dashboard) ---------------- */
 
 export const getUserApplications = async (req: Request, res: Response) => {
 
@@ -53,7 +53,7 @@ export const getUserApplications = async (req: Request, res: Response) => {
 };
 
 
-/* Get applications for a specific job */
+/* ---------------- Get applications for a specific job (Recruiter view) ---------------- */
 
 export const getJobApplications = async (req: Request, res: Response) => {
 
@@ -79,7 +79,7 @@ export const getJobApplications = async (req: Request, res: Response) => {
 };
 
 
-/* NEW: Get applications for all jobs posted by a recruiter */
+/* ---------------- Get applications for all jobs posted by a recruiter ---------------- */
 
 export const getRecruiterApplications = async (req: Request, res: Response) => {
 
@@ -103,6 +103,57 @@ export const getRecruiterApplications = async (req: Request, res: Response) => {
 
     res.status(500).json({
       message: "Error fetching recruiter applications",
+      error
+    });
+
+  }
+
+};
+
+
+/* ---------------- Update application status (Recruiter workflow) ---------------- */
+
+export const updateApplicationStatus = async (req: Request, res: Response) => {
+
+  try {
+
+    const id = Number(req.params.id);
+    const { status } = req.body;
+
+    const validStatuses = [
+      "applied",
+      "shortlisted",
+      "interview_scheduled",
+      "interview_done",
+      "offer_sent",
+      "offer_accepted",
+      "offer_rejected",
+      "hired",
+      "rejected"
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status value"
+      });
+    }
+
+    const application = await Application.findByPk(id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found"
+      });
+    }
+
+    await application.update({ status });
+
+    res.status(200).json(application);
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Error updating application status",
       error
     });
 

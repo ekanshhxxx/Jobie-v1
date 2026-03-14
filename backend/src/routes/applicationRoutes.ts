@@ -1,28 +1,29 @@
 import express from "express";
-
 import {
   applyJob,
   getUserApplications,
   getJobApplications,
-  getRecruiterApplications
+  getRecruiterApplications,
+  updateApplicationStatus
 } from "../controllers/applicationController";
+
+import { verifyToken } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-/* Apply job */
+/* Apply for job (Candidate) */
+router.post("/apply", verifyToken, applyJob);
 
-router.post("/apply", applyJob);
+/* Candidate applications */
+router.get("/user/:id", verifyToken, getUserApplications);
 
-/* Get applications by user */
+/* Applications for specific job (Recruiter) */
+router.get("/job/:jobId", verifyToken, getJobApplications);
 
-router.get("/user/:id", getUserApplications);
+/* Recruiter dashboard applications */
+router.get("/recruiter/:recruiterId", verifyToken, getRecruiterApplications);
 
-/* Get applications for a job */
-
-router.get("/job/:jobId", getJobApplications);
-
-/* NEW: Recruiter view applications */
-
-router.get("/recruiter/:recruiterId", getRecruiterApplications);
+/* Update application status */
+router.put("/:id/status", verifyToken, updateApplicationStatus);
 
 export default router;

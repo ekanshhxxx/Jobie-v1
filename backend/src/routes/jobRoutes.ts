@@ -10,15 +10,14 @@ import {
 
 const router = express.Router();
 
-/* Candidate APIs */
+/* ---------------- Candidate APIs ---------------- */
+
 router.get("/", getAllJobs);
-
-/* Recruiter APIs */
-router.get("/recruiter", getRecruiterJobs);
-
-/* Dynamic routes MUST be last */
 router.get("/:id", getJobById);
 
+/* ---------------- Recruiter APIs ---------------- */
+
+router.get("/recruiter", getRecruiterJobs);
 router.post("/create", createJob);
 router.put("/:id", updateJob);
 router.delete("/:id", deleteJob);
