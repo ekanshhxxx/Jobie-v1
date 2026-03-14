@@ -79,7 +79,7 @@ export const getJobApplications = async (req: Request, res: Response) => {
 };
 
 
-/* NEW: Get applications for all jobs posted by a recruiter */
+/* Get applications for all jobs posted by a recruiter */
 
 export const getRecruiterApplications = async (req: Request, res: Response) => {
 
@@ -103,6 +103,42 @@ export const getRecruiterApplications = async (req: Request, res: Response) => {
 
     res.status(500).json({
       message: "Error fetching recruiter applications",
+      error
+    });
+
+  }
+
+};
+
+
+/* NEW: Update application status (Accept / Reject) */
+
+export const updateApplicationStatus = async (req: Request, res: Response) => {
+
+  try {
+
+    const id = Number(req.params.id);
+    const { status } = req.body;
+
+    const application = await Application.findByPk(id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found"
+      });
+    }
+
+    await application.update({ status });
+
+    res.status(200).json({
+      message: "Application status updated",
+      application
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Error updating application status",
       error
     });
 

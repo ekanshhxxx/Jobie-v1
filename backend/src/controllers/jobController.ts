@@ -1,5 +1,7 @@
+
 import { Request, Response } from "express";
 import Job from "../models/Job";
+import Application from "../models/Application";
 
 /* ---------------- Candidate APIs ---------------- */
 
@@ -119,9 +121,18 @@ export const deleteJob = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    // delete all applications related to this job
+    const deletedApplications = await Application.destroy({
+      where: { jobId: id }
+    });
+
+    // delete the job
     await job.destroy();
 
-    res.json({ message: "Job deleted successfully" });
+    res.json({
+      message: "Job and related applications deleted successfully",
+      deletedApplications
+    });
 
   } catch (error) {
     res.status(500).json({ error });
@@ -134,7 +145,6 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
 
     const recruiterId = Number(req.query.recruiterId);
 
-    // validation
     if (!recruiterId || isNaN(recruiterId)) {
       return res.status(400).json({
         message: "Valid recruiterId query parameter is required"
@@ -146,7 +156,24 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
       order: [["createdAt", "DESC"]]
     });
 
-    res.status(200).json(jobs);
+    // Add applications count for each job
+
+    const jobsWithApplications = await Promise.all(
+      jobs.map(async (job: any) => {
+
+        const count = await Application.count({
+          where: { jobId: job.id }
+        });
+
+        return {
+          ...job.toJSON(),
+          applicationsCount: count
+        };
+
+      })
+    );
+
+    res.status(200).json(jobsWithApplications);
 
   } catch (error) {
     res.status(500).json({

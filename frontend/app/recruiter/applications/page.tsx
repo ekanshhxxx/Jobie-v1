@@ -28,15 +28,52 @@ export default function Applications() {
 
   };
 
+  const updateStatus = async (id:number,status:string) => {
+
+    try {
+
+      await fetch(`http://localhost:4000/api/applications/${id}`,{
+        method:"PUT",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({status})
+      });
+
+      fetchApplications();
+
+    } catch (error) {
+      console.log(error);
+    }
+
+  };
+
   const getStatusColor = (status: string) => {
 
     if (status === "accepted")
-      return "bg-[#10B981] text-white";
+      return "bg-green-100 text-green-700";
 
     if (status === "rejected")
-      return "bg-[#EF4444] text-white";
+      return "bg-red-100 text-red-700";
 
-    return "bg-[#F59E0B] text-white";
+    return "bg-yellow-100 text-yellow-700";
+  };
+
+  const getTimeAgo = (date:string) => {
+
+    if(!date) return "-";
+
+    const now = new Date();
+    const applied = new Date(date);
+
+    const diff = Math.floor(
+      (now.getTime() - applied.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diff === 0) return "Today";
+    if (diff === 1) return "1 day ago";
+
+    return `${diff} days ago`;
   };
 
   return (
@@ -47,17 +84,20 @@ export default function Applications() {
         Job Applications
       </h1>
 
-      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 overflow-x-auto">
 
         <table className="w-full">
 
           <thead className="bg-[#F8FAFC] text-[#6B7280] border-b border-[#E5E7EB]">
 
             <tr>
+              <th className="p-4 text-left">Application ID</th>
               <th className="p-4 text-left">Candidate</th>
               <th className="p-4 text-left">Email</th>
               <th className="p-4 text-left">Job ID</th>
+              <th className="p-4 text-left">Applied</th>
               <th className="p-4 text-left">Status</th>
+              <th className="p-4 text-center">Actions</th>
             </tr>
 
           </thead>
@@ -67,7 +107,7 @@ export default function Applications() {
             {applications.length === 0 ? (
 
               <tr>
-                <td colSpan={4} className="text-center py-8 text-[#6B7280]">
+                <td colSpan={7} className="text-center py-8 text-[#6B7280]">
                   No applications yet
                 </td>
               </tr>
@@ -82,6 +122,10 @@ export default function Applications() {
                 >
 
                   <td className="p-4 font-medium">
+                    #{app.id}
+                  </td>
+
+                  <td className="p-4 font-medium">
                     User {app.userId}
                   </td>
 
@@ -93,13 +137,55 @@ export default function Applications() {
                     {app.jobId}
                   </td>
 
+                  <td className="p-4 text-sm text-gray-500">
+                    {getTimeAgo(app.createdAt)}
+                  </td>
+
                   <td className="p-4">
 
                     <span
-                      className={`px-3 py-1 text-sm rounded-full ${getStatusColor(app.status)}`}
+                      className={`px-3 py-1 text-xs rounded-full ${getStatusColor(app.status)}`}
                     >
-                      {app.status}
+                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                     </span>
+
+                  </td>
+
+                  <td className="p-4">
+
+                    <div className="flex justify-center gap-2">
+
+                      {app.status === "pending" && (
+                        <>
+                          <button
+                            onClick={()=>updateStatus(app.id,"accepted")}
+                            className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs transition"
+                          >
+                            Accept
+                          </button>
+
+                          <button
+                            onClick={()=>updateStatus(app.id,"rejected")}
+                            className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs transition"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+
+                      {app.status === "accepted" && (
+                        <span className="text-xs text-green-700 font-medium">
+                          ✓ Accepted
+                        </span>
+                      )}
+
+                      {app.status === "rejected" && (
+                        <span className="text-xs text-red-700 font-medium">
+                          ✕ Rejected
+                        </span>
+                      )}
+
+                    </div>
 
                   </td>
 
@@ -116,5 +202,7 @@ export default function Applications() {
       </div>
 
     </div>
+
   );
+
 }

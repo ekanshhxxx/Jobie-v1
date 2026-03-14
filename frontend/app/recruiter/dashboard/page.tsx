@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import StatsCard from "../../../components/StatsCard";
 import JobTable from "../../../components/JobTable";
 import ApplicationsChart from "../../../components/ApplicationsChart";
+import ApplicationsPerJobChart from "../../../components/ApplicationsPerJobChart";
 import Header from "../../../components/Header";
 
 import { Briefcase, BarChart3, FileText, XCircle } from "lucide-react";
@@ -12,7 +13,7 @@ export default function Dashboard() {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // NEW FILTER STATE
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -181,9 +182,15 @@ export default function Dashboard() {
           <JobTable jobs={filteredJobs} />
         </div>
 
-        {/* Chart */}
+        {/* Charts Row */}
 
-        <ApplicationsChart />
+        <div className="grid grid-cols-2 gap-6">
+
+          <ApplicationsChart />
+
+          <ApplicationsPerJobChart />
+
+        </div>
 
         </>
 

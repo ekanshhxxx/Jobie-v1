@@ -24,18 +24,18 @@ export default function Header({ search, setSearch }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search jobs..."
-          className="w-full border border-[#E5E7EB] px-4 py-2 rounded-lg bg-white text-[#111827] placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+          className="w-full border border-[#E5E7EB] px-4 py-2 rounded-lg bg-white text-[#111827] placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-blue-300"
         />
 
       </div>
 
-      {/* Post Job Button (only dashboard) */}
+      {/* Post Job Button (visible on dashboard pages) */}
 
-      {pathname === "/dashboard" && (
+      {pathname.includes("dashboard") && (
 
         <button
-          onClick={() => router.push("/post-job")}
-          className="ml-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-4 py-2 rounded-lg font-medium"
+          onClick={() => router.push("/recruiter/post-job")}
+          className="ml-6 bg-blue-400 hover:bg-blue-500 text-blue-900 px-4 py-2 rounded-lg font-medium transition"
         >
           + Post Job
         </button>
@@ -45,4 +45,5 @@ export default function Header({ search, setSearch }: Props) {
     </div>
 
   );
+
 }

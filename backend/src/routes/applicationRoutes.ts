@@ -4,7 +4,8 @@ import {
   applyJob,
   getUserApplications,
   getJobApplications,
-  getRecruiterApplications
+  getRecruiterApplications,
+  updateApplicationStatus
 } from "../controllers/applicationController";
 
 const router = express.Router();
@@ -21,8 +22,12 @@ router.get("/user/:id", getUserApplications);
 
 router.get("/job/:jobId", getJobApplications);
 
-/* NEW: Recruiter view applications */
+/* Recruiter view applications */
 
 router.get("/recruiter/:recruiterId", getRecruiterApplications);
+
+/* NEW: Update application status (Accept / Reject) */
+
+router.put("/:id", updateApplicationStatus);
 
 export default router;

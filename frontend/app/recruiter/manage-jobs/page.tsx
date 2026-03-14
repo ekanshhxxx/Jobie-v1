@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Header from "../../../components/Header";
 
 export default function ManageJobs() {
@@ -9,6 +9,8 @@ export default function ManageJobs() {
   const [editingJob, setEditingJob] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const editFormRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchJobs();
@@ -58,7 +60,16 @@ export default function ManageJobs() {
   };
 
   const editJob = (job:any) => {
+
     setEditingJob(job);
+
+    setTimeout(() => {
+      editFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 100);
+
   };
 
   const updateJob = async () => {
@@ -105,7 +116,7 @@ export default function ManageJobs() {
 
     if (status === "active") {
       return (
-        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+        <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs">
           Active
         </span>
       );
@@ -224,50 +235,33 @@ export default function ManageJobs() {
 
                     <td className="p-4">{job.company}</td>
 
-                    {/* TECH SKILLS */}
-
                     <td className="p-4 text-sm">
-
                       {techSkills.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {techSkills.map((skill:string,index:number)=>(
-                            <span
-                              key={index}
-                              className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs"
-                            >
+                            <span key={index} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
                               {skill}
                             </span>
                           ))}
                         </div>
                       ) : "-"}
-
                     </td>
 
-                    {/* SKILLS */}
-
                     <td className="p-4 text-sm">
-
                       {skills.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {skills.map((skill:string,index:number)=>(
-                            <span
-                              key={index}
-                              className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
-                            >
+                            <span key={index} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
                               {skill}
                             </span>
                           ))}
                         </div>
                       ) : "-"}
-
                     </td>
 
                     <td className="p-4">{job.salary || "-"}</td>
-
                     <td className="p-4">{job.experience || "-"}</td>
-
                     <td className="p-4">{job.jobType || "-"}</td>
-
                     <td className="p-4">{getStatusBadge(job.status)}</td>
 
                     <td className="p-4">
@@ -276,7 +270,7 @@ export default function ManageJobs() {
 
                         <button
                           onClick={() => editJob(job)}
-                          className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded"
+                          className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs px-3 py-1 rounded transition"
                         >
                           Edit
                         </button>
@@ -284,7 +278,7 @@ export default function ManageJobs() {
                         {job.status === "active" && (
                           <button
                             onClick={() => changeStatus(job.id,"closed")}
-                            className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded"
+                            className="bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs px-3 py-1 rounded transition"
                           >
                             Close
                           </button>
@@ -293,7 +287,7 @@ export default function ManageJobs() {
                         {job.status === "draft" && (
                           <button
                             onClick={() => changeStatus(job.id,"active")}
-                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
+                            className="bg-green-100 hover:bg-green-200 text-green-700 text-xs px-3 py-1 rounded transition"
                           >
                             Publish
                           </button>
@@ -302,7 +296,7 @@ export default function ManageJobs() {
                         {job.status === "closed" && (
                           <button
                             onClick={() => changeStatus(job.id,"active")}
-                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
+                            className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs px-3 py-1 rounded transition"
                           >
                             Reopen
                           </button>
@@ -310,7 +304,7 @@ export default function ManageJobs() {
 
                         <button
                           onClick={() => confirmDelete(job.id)}
-                          className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded"
+                          className="bg-red-100 hover:bg-red-200 text-red-700 text-xs px-3 py-1 rounded transition"
                         >
                           Delete
                         </button>
@@ -333,58 +327,69 @@ export default function ManageJobs() {
 
       </div>
 
-      {/* EDIT FORM */}
-
       {editingJob && (
 
-        <div className="mt-10 bg-white border border-[#E5E7EB] p-6 rounded-xl max-w-xl">
+        <div ref={editFormRef} className="mt-10 bg-white border border-[#E5E7EB] p-6 rounded-xl max-w-3xl">
 
-          <h2 className="text-xl font-semibold mb-4">
+          <h2 className="text-xl font-semibold mb-6">
             Edit Job
           </h2>
 
-          <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-6">
 
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.title}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, title:e.target.value })
-              }
-            />
+            <div>
+              <label className="text-sm font-medium">Job Title</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.title || ""} onChange={(e)=>setEditingJob({...editingJob,title:e.target.value})}/>
+            </div>
 
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.company}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, company:e.target.value })
-              }
-            />
+            <div>
+              <label className="text-sm font-medium">Company</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.company || ""} onChange={(e)=>setEditingJob({...editingJob,company:e.target.value})}/>
+            </div>
 
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.techSkills || ""}
-              placeholder="Tech Skills (comma separated)"
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, techSkills:e.target.value })
-              }
-            />
+            <div>
+              <label className="text-sm font-medium">Location</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.location || ""} onChange={(e)=>setEditingJob({...editingJob,location:e.target.value})}/>
+            </div>
 
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.skills || ""}
-              placeholder="Skills (comma separated)"
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, skills:e.target.value })
-              }
-            />
+            <div>
+              <label className="text-sm font-medium">Salary</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.salary || ""} onChange={(e)=>setEditingJob({...editingJob,salary:e.target.value})}/>
+            </div>
 
-            <button
-              onClick={updateJob}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg w-fit"
-            >
-              Update Job
-            </button>
+            <div>
+              <label className="text-sm font-medium">Experience</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.experience || ""} onChange={(e)=>setEditingJob({...editingJob,experience:e.target.value})}/>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Job Type</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.jobType || ""} onChange={(e)=>setEditingJob({...editingJob,jobType:e.target.value})}/>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Tech Skills</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.techSkills || ""} onChange={(e)=>setEditingJob({...editingJob,techSkills:e.target.value})}/>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Skills</label>
+              <input className="border p-3 rounded-lg w-full" value={editingJob.skills || ""} onChange={(e)=>setEditingJob({...editingJob,skills:e.target.value})}/>
+            </div>
+
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Description</label>
+              <textarea className="border p-3 rounded-lg w-full" rows={4} value={editingJob.description || ""} onChange={(e)=>setEditingJob({...editingJob,description:e.target.value})}/>
+            </div>
+
+            <div className="col-span-2">
+              <button
+                onClick={updateJob}
+                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg transition"
+                >
+                Update Job
+              </button>
+            </div>
 
           </div>
 
