@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Job from "../models/Job";
+import Application from "../models/Application";
 
 /* ---------------- Candidate APIs ---------------- */
 
@@ -155,10 +156,17 @@ export const deleteJob = async (req: Request, res: Response) => {
       });
     }
 
+    // delete all applications related to this job
+    const deletedApplications = await Application.destroy({
+      where: { jobId: id }
+    });
+
+    // delete the job
     await job.destroy();
 
     res.status(200).json({
-      message: "Job deleted successfully"
+      message: "Job and related applications deleted successfully",
+      deletedApplications
     });
 
   } catch (error) {
@@ -189,7 +197,23 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
       order: [["createdAt", "DESC"]]
     });
 
-    res.status(200).json(jobs);
+    // Add applications count for each job
+    const jobsWithApplications = await Promise.all(
+      jobs.map(async (job: any) => {
+
+        const count = await Application.count({
+          where: { jobId: job.id }
+        });
+
+        return {
+          ...job.toJSON(),
+          applicationsCount: count
+        };
+
+      })
+    );
+
+    res.status(200).json(jobsWithApplications);
 
   } catch (error) {
 

@@ -148,7 +148,10 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
 
     await application.update({ status });
 
-    res.status(200).json(application);
+    res.status(200).json({
+      message: "Application status updated",
+      application
+    });
 
   } catch (error) {
 

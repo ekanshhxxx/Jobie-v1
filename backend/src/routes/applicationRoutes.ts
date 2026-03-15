@@ -11,19 +11,24 @@ import { verifyToken } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-/* Apply for job (Candidate) */
+/* ---------------- Candidate APIs ---------------- */
+
+// Apply for job
 router.post("/apply", verifyToken, applyJob);
 
-/* Candidate applications */
+// Get applications for logged-in user
 router.get("/user/:id", verifyToken, getUserApplications);
 
-/* Applications for specific job (Recruiter) */
+
+/* ---------------- Recruiter APIs ---------------- */
+
+// Get applications for a specific job
 router.get("/job/:jobId", verifyToken, getJobApplications);
 
-/* Recruiter dashboard applications */
+// Get all applications for recruiter's jobs
 router.get("/recruiter/:recruiterId", verifyToken, getRecruiterApplications);
 
-/* Update application status */
-router.put("/:id/status", verifyToken, updateApplicationStatus);
+// Update application status (Accept / Reject)
+router.put("/:id", verifyToken, updateApplicationStatus);
 
 export default router;
