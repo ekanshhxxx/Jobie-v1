@@ -13,11 +13,15 @@ const router = express.Router();
 /* ---------------- Candidate APIs ---------------- */
 
 router.get("/", getAllJobs);
-router.get("/:id", getJobById);
 
 /* ---------------- Recruiter APIs ---------------- */
 
 router.get("/recruiter", getRecruiterJobs);
+
+/* ---------------- Single Job ---------------- */
+
+router.get("/:id", getJobById);
+
 router.post("/create", createJob);
 router.put("/:id", updateJob);
 router.delete("/:id", deleteJob);

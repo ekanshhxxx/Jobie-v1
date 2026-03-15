@@ -9,9 +9,37 @@ export default function JobsPage() {
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [search, setSearch] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getJobs().then(setJobs)
+
+    const fetchJobs = async () => {
+
+      try {
+
+        const data = await getJobs()
+
+        const safeArray = Array.isArray(data)
+          ? data
+          : data.jobs || []
+
+        setJobs(safeArray)
+
+      } catch (error) {
+
+        console.error("Failed to fetch jobs:", error)
+        setJobs([])
+
+      } finally {
+
+        setLoading(false)
+
+      }
+
+    }
+
+    fetchJobs()
+
   }, [])
 
   const filteredJobs = jobs.filter((job) =>
@@ -29,7 +57,7 @@ export default function JobsPage() {
           Available Jobs
         </h1>
 
-        {/* Search Bar */}
+        {/* Search */}
         <div className="bg-white border border-slate-200 p-4 rounded-lg mb-8 flex gap-4">
 
           <input
@@ -46,15 +74,23 @@ export default function JobsPage() {
 
         </div>
 
-        {/* Jobs List */}
-        {filteredJobs.length === 0 ? (
-          <p>No jobs found</p>
-        ) : (
-          <div className="grid gap-4">
-            {filteredJobs.map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
+        {/* Loading */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-500">
+            Loading jobs...
           </div>
+        ) : (
+
+          filteredJobs.length === 0 ? (
+            <p>No jobs found</p>
+          ) : (
+            <div className="grid gap-4">
+              {filteredJobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          )
+
         )}
 
       </div>

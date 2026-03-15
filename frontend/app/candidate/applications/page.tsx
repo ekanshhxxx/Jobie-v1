@@ -12,11 +12,32 @@ interface Application {
 export default function ApplicationsPage() {
 
   const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/applications/user/1")
-      .then((res) => res.json())
-      .then((data) => setApplications(data))
+    const fetchApplications = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/applications/user/1")
+        const data = await res.json()
+
+        // ✅ Ensure applications is always an array
+        if (Array.isArray(data)) {
+          setApplications(data)
+        } else if (Array.isArray(data.applications)) {
+          setApplications(data.applications)
+        } else {
+          setApplications([])
+        }
+
+      } catch (error) {
+        console.error("Error fetching applications:", error)
+        setApplications([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchApplications()
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -35,65 +56,85 @@ export default function ApplicationsPage() {
           My Applications
         </h1>
 
-        {/* Applications Table */}
-        <div className="bg-white rounded-lg border border-slate-200">
-
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold">
-              Jobs You've Applied To
-            </h2>
+        {/* Loading */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-500">
+            Loading applications...
           </div>
+        ) : (
 
-          <table className="w-full">
+          <div className="bg-white rounded-lg border border-slate-200">
 
-            <thead className="text-left border-b bg-slate-50">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-semibold">
+                Jobs You've Applied To
+              </h2>
+            </div>
 
-              <tr>
-                <th className="p-4">Application ID</th>
-                <th className="p-4">Job ID</th>
-                <th className="p-4">Applied Date</th>
-                <th className="p-4">Status</th>
-              </tr>
+            <table className="w-full">
 
-            </thead>
+              <thead className="text-left border-b bg-slate-50">
 
-            <tbody>
-
-              {applications.map((app) => (
-
-                <tr key={app.id} className="border-b hover:bg-slate-50">
-
-                  <td className="p-4">
-                    {app.id}
-                  </td>
-
-                  <td className="p-4">
-                    {app.jobId}
-                  </td>
-
-                  <td className="p-4">
-                    {new Date(app.createdAt).toLocaleDateString()}
-                  </td>
-
-                  <td className="p-4">
-
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(app.status)}`}
-                    >
-                      {app.status}
-                    </span>
-
-                  </td>
-
+                <tr>
+                  <th className="p-4">Application ID</th>
+                  <th className="p-4">Job ID</th>
+                  <th className="p-4">Applied Date</th>
+                  <th className="p-4">Status</th>
                 </tr>
 
-              ))}
+              </thead>
 
-            </tbody>
+              <tbody>
 
-          </table>
+                {applications.length === 0 ? (
 
-        </div>
+                  <tr>
+                    <td colSpan={4} className="text-center p-10 text-gray-500">
+                      No applications yet
+                    </td>
+                  </tr>
+
+                ) : (
+
+                  applications.map((app) => (
+
+                    <tr key={app.id} className="border-b hover:bg-slate-50">
+
+                      <td className="p-4">
+                        {app.id}
+                      </td>
+
+                      <td className="p-4">
+                        {app.jobId}
+                      </td>
+
+                      <td className="p-4">
+                        {new Date(app.createdAt).toLocaleDateString()}
+                      </td>
+
+                      <td className="p-4">
+
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(app.status)}`}
+                        >
+                          {app.status}
+                        </span>
+
+                      </td>
+
+                    </tr>
+
+                  ))
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
 
       </div>
 

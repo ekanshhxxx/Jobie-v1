@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Header from "../../../components/Header";
-import { currentUser } from "@/lib/user";
+import { getCurrentUser } from "@/lib/user";
 
 export default function ManageJobs() {
+
+  const user = getCurrentUser();
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [editingJob, setEditingJob] = useState<any>(null);
@@ -16,23 +18,32 @@ export default function ManageJobs() {
   }, []);
 
   const fetchJobs = async () => {
+
     try {
 
       setLoading(true);
 
       const res = await fetch(
-  `http://localhost:4000/api/jobs/recruiter?recruiterId=${currentUser.id}`
-);
+        `http://localhost:4000/api/jobs/recruiter?recruiterId=${user?.id}`
+      );
 
       const data = await res.json();
 
-      setJobs(data);
+      // ✅ SAFE ARRAY HANDLING
+      const safeJobs = Array.isArray(data)
+        ? data
+        : data.jobs || data.data || [];
+
+      setJobs(safeJobs);
 
       setLoading(false);
 
     } catch (error) {
+
       console.log(error);
+      setJobs([]);
       setLoading(false);
+
     }
   };
 
@@ -43,6 +54,7 @@ export default function ManageJobs() {
   };
 
   const deleteJob = async (id:number) => {
+
     try {
 
       await fetch(`http://localhost:4000/api/jobs/${id}`, {
@@ -63,6 +75,7 @@ export default function ManageJobs() {
   };
 
   const updateJob = async () => {
+
     try {
 
       await fetch(`http://localhost:4000/api/jobs/${editingJob.id}`, {
@@ -85,6 +98,7 @@ export default function ManageJobs() {
   };
 
   const changeStatus = async (id:number,status:string) => {
+
     try {
 
       await fetch(`http://localhost:4000/api/jobs/${id}`, {
@@ -127,6 +141,8 @@ export default function ManageJobs() {
         </span>
       );
     }
+
+    return null;
   };
 
   const getTimeAgo = (date:string) => {
@@ -225,10 +241,7 @@ export default function ManageJobs() {
 
                     <td className="p-4">{job.company}</td>
 
-                    {/* TECH SKILLS */}
-
                     <td className="p-4 text-sm">
-
                       {techSkills.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {techSkills.map((skill:string,index:number)=>(
@@ -241,13 +254,9 @@ export default function ManageJobs() {
                           ))}
                         </div>
                       ) : "-"}
-
                     </td>
 
-                    {/* SKILLS */}
-
                     <td className="p-4 text-sm">
-
                       {skills.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {skills.map((skill:string,index:number)=>(
@@ -260,7 +269,6 @@ export default function ManageJobs() {
                           ))}
                         </div>
                       ) : "-"}
-
                     </td>
 
                     <td className="p-4">{job.salary || "-"}</td>
@@ -281,33 +289,6 @@ export default function ManageJobs() {
                         >
                           Edit
                         </button>
-
-                        {job.status === "active" && (
-                          <button
-                            onClick={() => changeStatus(job.id,"closed")}
-                            className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded"
-                          >
-                            Close
-                          </button>
-                        )}
-
-                        {job.status === "draft" && (
-                          <button
-                            onClick={() => changeStatus(job.id,"active")}
-                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
-                          >
-                            Publish
-                          </button>
-                        )}
-
-                        {job.status === "closed" && (
-                          <button
-                            onClick={() => changeStatus(job.id,"active")}
-                            className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded"
-                          >
-                            Reopen
-                          </button>
-                        )}
 
                         <button
                           onClick={() => confirmDelete(job.id)}
@@ -333,65 +314,6 @@ export default function ManageJobs() {
         </table>
 
       </div>
-
-      {/* EDIT FORM */}
-
-      {editingJob && (
-
-        <div className="mt-10 bg-white border border-[#E5E7EB] p-6 rounded-xl max-w-xl">
-
-          <h2 className="text-xl font-semibold mb-4">
-            Edit Job
-          </h2>
-
-          <div className="flex flex-col gap-4">
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.title}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, title:e.target.value })
-              }
-            />
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.company}
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, company:e.target.value })
-              }
-            />
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.techSkills || ""}
-              placeholder="Tech Skills (comma separated)"
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, techSkills:e.target.value })
-              }
-            />
-
-            <input
-              className="border p-3 rounded-lg"
-              value={editingJob.skills || ""}
-              placeholder="Skills (comma separated)"
-              onChange={(e)=>
-                setEditingJob({ ...editingJob, skills:e.target.value })
-              }
-            />
-
-            <button
-              onClick={updateJob}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg w-fit"
-            >
-              Update Job
-            </button>
-
-          </div>
-
-        </div>
-
-      )}
 
     </div>
   );

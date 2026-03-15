@@ -1,36 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { currentUser } from "@/lib/user";
+import { getCurrentUser } from "@/lib/user";
 
 export default function Applications() {
 
+  const user = getCurrentUser();
+
   const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchApplications();
+    if (user?.id) {
+      fetchApplications();
+    }
   }, []);
 
   const fetchApplications = async () => {
+
     try {
 
-      // 1️⃣ get recruiter jobs
+      setLoading(true);
+
+      // 1️⃣ Get recruiter jobs
       const jobsRes = await fetch(
-        `http://localhost:4000/api/jobs/recruiter?recruiterId=${currentUser.id}`
+        `http://localhost:4000/api/jobs/recruiter?recruiterId=${user?.id}`
       );
 
-      const jobs = await jobsRes.json();
+      const jobsData = await jobsRes.json();
+
+      const jobs = Array.isArray(jobsData)
+        ? jobsData
+        : jobsData.jobs || [];
 
       let allApplications: any[] = [];
 
-      // 2️⃣ get applications for each job
+      // 2️⃣ Get applications for each job
       for (const job of jobs) {
 
         const res = await fetch(
           `http://localhost:4000/api/applications/job/${job.id}`
         );
 
-        const apps = await res.json();
+        const appsData = await res.json();
+
+        const apps = Array.isArray(appsData)
+          ? appsData
+          : appsData.applications || [];
 
         // attach job title
         const appsWithJob = apps.map((app: any) => ({
@@ -43,8 +59,14 @@ export default function Applications() {
 
       setApplications(allApplications);
 
+      setLoading(false);
+
     } catch (error) {
+
       console.log(error);
+      setApplications([]);
+      setLoading(false);
+
     }
   };
 
@@ -84,7 +106,15 @@ export default function Applications() {
 
           <tbody>
 
-            {applications.length === 0 ? (
+            {loading ? (
+
+              <tr>
+                <td colSpan={4} className="text-center py-8 text-[#6B7280]">
+                  Loading applications...
+                </td>
+              </tr>
+
+            ) : applications.length === 0 ? (
 
               <tr>
                 <td colSpan={4} className="text-center py-8 text-[#6B7280]">

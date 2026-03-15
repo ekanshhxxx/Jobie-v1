@@ -7,12 +7,13 @@ import ApplicationsChart from "../../../components/ApplicationsChart";
 import Header from "../../../components/Header";
 
 import { Briefcase, BarChart3, FileText, XCircle } from "lucide-react";
+import { getCurrentUser } from "@/lib/user";
 
 export default function Dashboard() {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // NEW FILTER STATE
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,23 +26,32 @@ export default function Dashboard() {
 
       setLoading(true);
 
+      const user = getCurrentUser();
+
       const res = await fetch(
-        "http://localhost:4000/api/jobs/recruiter?recruiterId=1"
+        `http://localhost:4000/api/jobs/recruiter?recruiterId=${user?.id}`
       );
 
       const data = await res.json();
 
-      setJobs(data);
+      const jobsArray = Array.isArray(data) ? data : data.jobs || [];
+
+      setJobs(jobsArray);
 
       setLoading(false);
 
     } catch (error) {
+
       console.log(error);
+
+      setJobs([]);
+
       setLoading(false);
+
     }
   };
 
-  // Job Counts
+  /* Stats */
 
   const totalJobs = jobs.length;
 
@@ -57,15 +67,15 @@ export default function Dashboard() {
     (job) => job.status === "closed"
   ).length;
 
-  // SEARCH FILTER
+  /* Search filter */
 
   const searchFiltered = jobs.filter((job) =>
-    job.title.toLowerCase().includes(search.toLowerCase()) ||
-    job.company.toLowerCase().includes(search.toLowerCase()) ||
-    job.location.toLowerCase().includes(search.toLowerCase())
+    job.title?.toLowerCase().includes(search.toLowerCase()) ||
+    job.company?.toLowerCase().includes(search.toLowerCase()) ||
+    job.location?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // STATUS FILTER
+  /* Status filter */
 
   const filteredJobs = searchFiltered.filter((job) => {
 
@@ -125,7 +135,7 @@ export default function Dashboard() {
 
         </div>
 
-        {/* STATUS FILTER TABS */}
+        {/* Filters */}
 
         <div className="flex gap-4 mb-6">
 
@@ -175,7 +185,7 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Job Table */}
+        {/* Jobs Table */}
 
         <div className="mb-10">
           <JobTable jobs={filteredJobs} />

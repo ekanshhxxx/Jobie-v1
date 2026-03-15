@@ -32,27 +32,35 @@ const githubProvider = new GithubAuthProvider();
   setLoading(true);
 
   try {
-    // 🔹 Call backend directly with email + password
+
     const data = await api.post('/api/auth/login', {
       email: form.email,
       password: form.password
     });
 
-    // 🔹 Save JWT & user in localStorage
+    // save JWT + user
     setAuth(data.token, data.user);
 
     toast({
       type: 'success',
       emoji: '👋',
       title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-      message: 'You are now signed in. Redirecting to your dashboard…',
+      message: 'You are now signed in. Redirecting...',
     });
 
-    router.push('/');
+    // 🔹 ROLE BASED REDIRECT
+    if (data.user.role === "recruiter") {
+      router.push("/recruiter/dashboard");
+    } else {
+      router.push("/candidate/dashboard");
+    }
 
   } catch (err: any) {
+
     console.error(err);
+
     let msg = err.message || "Login failed";
+
     setError(msg);
 
     toast({
@@ -60,13 +68,11 @@ const githubProvider = new GithubAuthProvider();
       title: 'Sign in failed',
       message: msg,
     });
+
   } finally {
     setLoading(false);
   }
 };
-
-
-
 
 
 const handleGoogleLogin = async () => {
@@ -88,7 +94,13 @@ const handleGoogleLogin = async () => {
     });
 
     setAuth(data.token, data.user);
-    router.push("/"); // main page pe redirect
+
+// ✅ role based redirect
+if (data.user.role === "recruiter") {
+  router.push("/recruiter/dashboard");
+} else {
+  router.push("/candidate/dashboard");
+}
 
   } catch (err) {
     console.error("Google login failed", err);
@@ -118,7 +130,13 @@ const handleGithubLogin = async () => {
     });
 
     setAuth(data.token, data.user);
-    router.push("/"); // main page
+
+// ✅ role based redirect
+if (data.user.role === "recruiter") {
+  router.push("/recruiter/dashboard");
+} else {
+  router.push("/candidate/dashboard");
+}
   } catch (err) {
     console.error("GitHub login failed", err);
   }

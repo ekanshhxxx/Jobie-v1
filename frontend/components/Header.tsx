@@ -17,7 +17,6 @@ export default function Header({ search, setSearch }: Props) {
     <div className="flex justify-between items-center mb-10">
 
       {/* Search Bar */}
-
       <div className="flex-1 max-w-md">
 
         <input
@@ -29,12 +28,12 @@ export default function Header({ search, setSearch }: Props) {
 
       </div>
 
-      {/* Post Job Button (only dashboard) */}
+      {/* Post Job Button (only recruiter dashboard) */}
 
-      {pathname === "/dashboard" && (
+      {pathname === "/recruiter/dashboard" && (
 
         <button
-          onClick={() => router.push("/post-job")}
+          onClick={() => router.push("/recruiter/post-job")}
           className="ml-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-4 py-2 rounded-lg font-medium"
         >
           + Post Job

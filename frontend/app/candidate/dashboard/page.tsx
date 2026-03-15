@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { currentUser } from "@/lib/user";
+import { getCurrentUser } from "@/lib/user";
+
+
 
 interface Application {
   id: number
@@ -11,12 +13,43 @@ interface Application {
 
 export default function DashboardPage() {
 
+  const user = getCurrentUser();
   const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/applications/user/${currentUser.id}")
-      .then((res) => res.json())
-      .then((data) => setApplications(data))
+
+    const fetchApplications = async () => {
+
+      try {
+
+        const res = await fetch(
+          `http://localhost:4000/api/applications/user/${user?.id}`
+        )
+
+        const data = await res.json()
+
+        const safeArray = Array.isArray(data)
+          ? data
+          : data.applications || []
+
+        setApplications(safeArray)
+
+      } catch (error) {
+
+        console.error("Failed to fetch applications:", error)
+        setApplications([])
+
+      } finally {
+
+        setLoading(false)
+
+      }
+
+    }
+
+    fetchApplications()
+
   }, [])
 
   const pending = applications.filter(a => a.status === "pending").length
@@ -33,100 +66,116 @@ export default function DashboardPage() {
 
       <div className="max-w-6xl mx-auto">
 
-        {/* Page Title */}
         <h1 className="text-4xl font-semibold mb-8">
           Candidate Dashboard
         </h1>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-6 mb-10">
-
-          <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
-            <h2 className="text-sm text-slate-500">
-              Total Applications
-            </h2>
-            <p className="text-3xl font-bold mt-2">
-              {applications.length}
-            </p>
+        {/* Loading */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-500">
+            Loading dashboard...
           </div>
+        ) : (
 
-          <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
-            <h2 className="text-sm text-slate-500">
-              Pending
-            </h2>
-            <p className="text-3xl font-bold mt-2">
-              {pending}
-            </p>
-          </div>
+          <>
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-6 mb-10">
 
-          <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
-            <h2 className="text-sm text-slate-500">
-              Accepted
-            </h2>
-            <p className="text-3xl font-bold mt-2">
-              {accepted}
-            </p>
-          </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
+                <h2 className="text-sm text-slate-500">
+                  Total Applications
+                </h2>
+                <p className="text-3xl font-bold mt-2">
+                  {applications.length}
+                </p>
+              </div>
 
-        </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
+                <h2 className="text-sm text-slate-500">
+                  Pending
+                </h2>
+                <p className="text-3xl font-bold mt-2">
+                  {pending}
+                </p>
+              </div>
 
-        {/* Applications Table */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-md transition">
+                <h2 className="text-sm text-slate-500">
+                  Accepted
+                </h2>
+                <p className="text-3xl font-bold mt-2">
+                  {accepted}
+                </p>
+              </div>
 
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold">
-              My Applications
-            </h2>
-          </div>
+            </div>
 
-          <table className="w-full">
+            {/* Applications table */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
 
-            <thead className="text-left border-b bg-slate-50">
+              <div className="p-6 border-b">
+                <h2 className="text-lg font-semibold">
+                  My Applications
+                </h2>
+              </div>
 
-              <tr>
-                <th className="p-4">Application ID</th>
-                <th className="p-4">Job ID</th>
-                <th className="p-4">Status</th>
-              </tr>
+              <table className="w-full">
 
-            </thead>
+                <thead className="text-left border-b bg-slate-50">
 
-            <tbody>
+                  <tr>
+                    <th className="p-4">Application ID</th>
+                    <th className="p-4">Job ID</th>
+                    <th className="p-4">Status</th>
+                  </tr>
 
-              {applications.map((app) => (
+                </thead>
 
-                <tr
-                  key={app.id}
-                  className="border-b hover:bg-slate-50 transition"
-                >
+                <tbody>
 
-                  <td className="p-4">
-                    {app.id}
-                  </td>
+                  {applications.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-gray-500">
+                        No applications yet
+                      </td>
+                    </tr>
+                  ) : (
 
-                  <td className="p-4">
-                    {app.jobId}
-                  </td>
+                    applications.map((app) => (
 
-                  <td className="p-4">
+                      <tr
+                        key={app.id}
+                        className="border-b hover:bg-slate-50 transition"
+                      >
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${getStatusColor(app.status)}`}
-                    >
-                      {app.status}
-                    </span>
+                        <td className="p-4">{app.id}</td>
+                        <td className="p-4">{app.jobId}</td>
 
-                  </td>
+                        <td className="p-4">
 
-                </tr>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${getStatusColor(app.status)}`}
+                          >
+                            {app.status}
+                          </span>
 
-              ))}
+                        </td>
 
-            </tbody>
+                      </tr>
 
-          </table>
+                    ))
 
-        </div>
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </>
+
+        )}
 
       </div>
 
