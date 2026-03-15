@@ -25,6 +25,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
+const [userId, setUserId] = useState<number | null>(null);
+const [otp, setOtp] = useState('');
+const [showOtp, setShowOtp] = useState(false);
+const [message, setMessage] = useState("");
 
  const submit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -32,23 +36,23 @@ const githubProvider = new GithubAuthProvider();
   setLoading(true);
 
   try {
-    // 🔹 Call backend directly with email + password
+
     const data = await api.post('/api/auth/login', {
       email: form.email,
       password: form.password
     });
 
-    // 🔹 Save JWT & user in localStorage
-    setAuth(data.token, data.user);
+    // OTP step start
+    if (data.userId) {
+      setUserId(data.userId);
+      setShowOtp(true);
 
-    toast({
-      type: 'success',
-      emoji: '👋',
-      title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-      message: 'You are now signed in. Redirecting to your dashboard…',
-    });
-
-    router.push('/');
+      toast({
+        type: 'success',
+        title: 'OTP sent',
+        message: 'Check your email for OTP'
+      });
+    }
 
   } catch (err: any) {
     console.error(err);
@@ -67,62 +71,131 @@ const githubProvider = new GithubAuthProvider();
 
 
 
-
-
 const handleGoogleLogin = async () => {
   try {
-
     const googleProvider = new GoogleAuthProvider();
-    googleProvider.setCustomParameters({
-      prompt: 'select_account', // har login pe account choose karne ka option
-    });
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
-
-    // 🔹 Get Firebase ID token
     const idToken = await user.getIdToken();
 
-    // 🔹 Call backend firebase-login route
-    const data = await api.post("/api/auth/firebase-login", {
-      token: idToken,
+    const data = await api.post("/api/auth/firebase-login", { token: idToken });
+console.log("Firebase login response:", data);
+
+const userIdFromRes = data.userId;
+
+    if (!userIdFromRes) {
+      throw new Error("User ID missing in backend response");
+    }
+
+    setUserId(userIdFromRes);
+    setShowOtp(true);
+
+    toast({
+      type: 'success',
+      title: 'OTP sent',
+      message: 'Check your email for OTP',
     });
 
-    setAuth(data.token, data.user);
-    router.push("/"); // main page pe redirect
-
-  } catch (err) {
+  } catch (err: any) {
     console.error("Google login failed", err);
+    toast({
+      type: 'error',
+      title: 'Login failed',
+      message: err.message || "Something went wrong",
+    });
   }
 };
+
+
+
 
 
 
 const handleGithubLogin = async () => {
   try {
-
     const githubProvider = new GithubAuthProvider();
-
-    // Optional: force re-authentication
-     githubProvider.setCustomParameters({
-      allow_signup: 'true',  // agar naya account ban sakta hai
-      prompt: 'select_account' // yahi line user ko choose karne degi
-    });
+    githubProvider.setCustomParameters({ allow_signup: 'true', prompt: 'select_account' });
 
     const result = await signInWithPopup(auth, githubProvider);
     const user = result.user;
-
     const idToken = await user.getIdToken();
 
-    const data = await api.post("/api/auth/firebase-login", {
-      token: idToken,
+    
+const data = await api.post("/api/auth/firebase-login", { token: idToken });
+console.log("GitHub login response:", data);
+
+const userIdFromRes = data.userId;
+
+
+    if (!userIdFromRes) throw new Error("User ID missing in backend response");
+
+    setUserId(userIdFromRes);
+    setShowOtp(true);
+
+    toast({
+      type: 'success',
+      title: 'OTP sent',
+      message: 'Check your email for OTP',
+    });
+
+  } catch (err: any) {
+    console.error("GitHub login failed", err);
+    toast({
+      type: 'error',
+      title: 'Login failed',
+      message: err.message || "Something went wrong",
+    });
+  }
+};
+
+
+
+const verifyOtp = async () => {
+  try {
+
+    const data = await api.post('/api/auth/verify-otp', {
+      userId,
+      otp
     });
 
     setAuth(data.token, data.user);
-    router.push("/"); // main page
-  } catch (err) {
-    console.error("GitHub login failed", err);
+
+    toast({
+      type: 'success',
+      title: 'Login successful',
+      message: 'Welcome back!'
+    });
+
+    router.push("/");
+
+  } catch (err: any) {
+
+    toast({
+      type: 'error',
+      title: 'OTP failed',
+      message: err.message || "OTP verification failed"
+    });
+
   }
 };
+
+
+const handleResendOtp = async () => {
+  try {
+
+    const data = await api.post("/api/auth/resend-otp", {
+      userId
+    });
+
+    setMessage("OTP sent successfully");
+
+  } catch (err) {
+    setMessage("Failed to resend OTP");
+  }
+};
+
 
 
   return (
@@ -256,6 +329,54 @@ const handleGithubLogin = async () => {
                   </button>
                 </div>
               </div>
+              
+              {showOtp && (
+  <div className="fixed inset-0 flex items-center justify-center z-50">
+
+    {/* Blur background */}
+    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    {/* Popup box */}
+    <div className="relative bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl w-[400px]">
+
+      <h2 className="text-2xl font-semibold text-center mb-4">
+        Enter OTP
+      </h2>
+
+      <p className="text-sm text-gray-500 text-center mb-6">
+        We sent a 6 digit code to your email
+      </p>
+
+      <input
+        type="text"
+        value={otp}
+        onChange={(e) => setOtp(e.target.value)}
+        placeholder="Enter OTP"
+        className="w-full border border-gray-300 rounded-xl px-4 py-3 text-center text-lg tracking-widest"
+      />
+
+      <button
+        onClick={verifyOtp}
+        className="w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl"
+      >
+        Verify OTP
+      </button>
+
+      <button
+        onClick={() => setShowOtp(false)}
+        className="w-full mt-2 text-gray-500"
+      >
+        Cancel
+      </button>
+      <button onClick={handleResendOtp}>
+  Resend OTP
+</button>
+
+    </div>
+  </div>
+)}
+
+
 
               {/* Submit */}
               <button

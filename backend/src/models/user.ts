@@ -8,6 +8,8 @@ class User extends Model {
   public password!: string | null; // firebase login ke liye optional
   public role!: "candidate" | "recruiter" | "admin";
   public firebaseUid!: string | null; // 🔹 add this
+  public otp!: string | null;
+  public otpExpiry!: Date | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -23,10 +25,10 @@ User.init({
     allowNull: false
   },
   email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
-  },
+  type: DataTypes.STRING,
+  allowNull: false,
+  unique: "email_unique"
+},
   password: {
     type: DataTypes.STRING,
     allowNull: true // 🔹 allowNull true for Firebase users
@@ -35,11 +37,20 @@ User.init({
     type: DataTypes.ENUM("candidate", "recruiter", "admin"),
     defaultValue: "candidate"
   },
-  firebaseUid: { // 🔹 add this
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true
-  }
+
+  otp: {
+  type: DataTypes.STRING,
+  allowNull: true,
+},
+otpExpiry: {
+  type: DataTypes.DATE,
+  allowNull: true,
+},
+  firebaseUid: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  unique: "firebase_uid_unique"
+}
 }, {
   sequelize,
   tableName: "users",
