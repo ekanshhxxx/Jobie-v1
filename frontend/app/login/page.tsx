@@ -11,7 +11,8 @@ import {
   GithubAuthProvider,
   GoogleAuthProvider,
   fetchSignInMethodsForEmail,
-  linkWithCredential
+  linkWithCredential,
+  AuthCredential
 } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../src/lib/firebase';
 
@@ -22,6 +23,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingLink, setPendingLink] = useState<{
+    credential: AuthCredential;
+    provider: 'google' | 'github';
+    email?: string;
+    methods?: string[];
+  } | null>(null);
 
   const fetchGithubInfo = async (accessToken?: string) => {
     if (!accessToken) return { githubUsername: undefined as string | undefined, githubUid: undefined as string | undefined };
@@ -35,6 +42,17 @@ export default function LoginPage() {
     } catch {
       return { githubUsername: undefined, githubUid: undefined };
     }
+  };
+
+  const formatProviderList = (methods: string[]) => {
+    return methods
+      .map(method => {
+        if (method === 'google.com') return 'Google';
+        if (method === 'github.com') return 'GitHub';
+        if (method === 'password') return 'Email/Password';
+        return method;
+      })
+      .join(', ');
   };
 
   const maybeHandleAccountLinking = async (err: unknown, pendingProvider: 'google' | 'github') => {
@@ -56,60 +74,21 @@ export default function LoginPage() {
 
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
+      setPendingLink({ credential: pendingCredential, provider: pendingProvider, email, methods });
 
+      let msg = 'This email is already linked to another sign-in method. Please use that method to link accounts.';
       if (methods.includes('google.com')) {
-        toast({
-          type: 'info',
-          title: 'Link accounts',
-          message: 'This email already uses Google. Continue with Google to link GitHub.'
-        });
-        googleProvider.setCustomParameters({ prompt: 'select_account' });
-        const result = await signInWithPopup(auth, googleProvider);
-        await linkWithCredential(result.user, pendingCredential);
-
-        const accessToken = (pendingCredential as { accessToken?: string }).accessToken;
-        const { githubUsername, githubUid } = await fetchGithubInfo(accessToken);
-        const idToken = await result.user.getIdToken();
-        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
-        setAuth(data.token, data.user);
-
-        toast({
-          type: 'success',
-          title: 'Accounts linked',
-          message: 'Google and GitHub are now linked. Redirecting...'
-        });
-        await routeAfterAuth(data.user);
-        return true;
+        msg = 'This email is linked to Google. Click Google to link accounts.';
+      } else if (methods.includes('github.com')) {
+        msg = 'This email is linked to GitHub. Click GitHub to link accounts.';
+      } else if (methods.includes('password')) {
+        msg = 'This email uses Email/Password. Please sign in with email and password, then try again to link.';
+      } else if (methods.length === 0) {
+        msg = 'We could not determine which provider owns this email. Click Google or GitHub to try linking.';
+      } else {
+        msg = `This email is linked to: ${formatProviderList(methods)}. Please sign in with that method first.`;
       }
 
-      if (methods.includes('github.com')) {
-        toast({
-          type: 'info',
-          title: 'Link accounts',
-          message: 'This email already uses GitHub. Continue with GitHub to link Google.'
-        });
-        githubProvider.setCustomParameters({ allow_signup: 'true', prompt: 'select_account' });
-        githubProvider.addScope('read:user');
-        githubProvider.addScope('user:email');
-        const result = await signInWithPopup(auth, githubProvider);
-        await linkWithCredential(result.user, pendingCredential);
-
-        const credential = GithubAuthProvider.credentialFromResult(result);
-        const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
-        const idToken = await result.user.getIdToken();
-        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
-        setAuth(data.token, data.user);
-
-        toast({
-          type: 'success',
-          title: 'Accounts linked',
-          message: 'GitHub and Google are now linked. Redirecting...'
-        });
-        await routeAfterAuth(data.user);
-        return true;
-      }
-
-      const msg = `This email is linked to: ${methods.join(', ')}. Please sign in with that method first.`;
       setError(msg);
       toast({ type: 'error', title: 'Linking required', message: msg });
       return true;
@@ -151,6 +130,7 @@ export default function LoginPage() {
     try {
       const data = await api.post('/api/auth/login', form);
       setAuth(data.token, data.user);
+      setPendingLink(null);
       toast({
         type: 'success',
         emoji: '👋',
@@ -175,12 +155,41 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      if (pendingLink) {
+        if (pendingLink.provider === 'google') {
+          const msg = 'To link accounts, click GitHub (the other provider).';
+          setError(msg);
+          toast({ type: 'info', title: 'Linking required', message: msg });
+          return;
+        }
+
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, googleProvider);
+        await linkWithCredential(result.user, pendingLink.credential);
+
+        const accessToken = (pendingLink.credential as { accessToken?: string }).accessToken;
+        const { githubUsername, githubUid } = await fetchGithubInfo(accessToken);
+        const idToken = await result.user.getIdToken();
+        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
+        setAuth(data.token, data.user);
+        setPendingLink(null);
+
+        toast({
+          type: 'success',
+          title: 'Accounts linked',
+          message: 'Google and GitHub are now linked. Redirecting...'
+        });
+        await routeAfterAuth(data.user);
+        return;
+      }
+
       googleProvider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
 
       const data = await api.post('/api/auth/firebase-login', { token: idToken });
       setAuth(data.token, data.user);
+      setPendingLink(null);
 
       toast({
         type: 'success',
@@ -204,6 +213,39 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      if (pendingLink) {
+        if (pendingLink.provider === 'github') {
+          const msg = 'To link accounts, click Google (the other provider).';
+          setError(msg);
+          toast({ type: 'info', title: 'Linking required', message: msg });
+          return;
+        }
+
+        githubProvider.setCustomParameters({
+          allow_signup: 'true',
+          prompt: 'select_account'
+        });
+        githubProvider.addScope('read:user');
+        githubProvider.addScope('user:email');
+        const result = await signInWithPopup(auth, githubProvider);
+        await linkWithCredential(result.user, pendingLink.credential);
+
+        const credential = GithubAuthProvider.credentialFromResult(result);
+        const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
+        const idToken = await result.user.getIdToken();
+        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
+        setAuth(data.token, data.user);
+        setPendingLink(null);
+
+        toast({
+          type: 'success',
+          title: 'Accounts linked',
+          message: 'GitHub and Google are now linked. Redirecting...'
+        });
+        await routeAfterAuth(data.user);
+        return;
+      }
+
       githubProvider.setCustomParameters({
         allow_signup: 'true',
         prompt: 'select_account'
@@ -221,6 +263,7 @@ export default function LoginPage() {
         githubUid
       });
       setAuth(data.token, data.user);
+      setPendingLink(null);
 
       toast({
         type: 'success',

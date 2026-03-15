@@ -47,10 +47,11 @@ export const parseResumeFromPDF = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: "Resume parsed successfully",
+      text,
       parsed,
       metadata: {
         pages: pdfData.pages,
-        textLength: text.length,
+        textLength: text.length
       }
     });
   } catch (error: any) {

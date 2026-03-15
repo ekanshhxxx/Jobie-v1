@@ -66,7 +66,7 @@ export default function Navbar() {
                   {user.role === 'candidate' && (
                     <>
                       <Link href="/profile/edit" className={`transition ${isActivePath('/profile') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Profile</Link>
-                      <Link href="/resume" className={`transition ${isActivePath('/resume') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Resume AI</Link>
+                      <Link href="/resume" className={`transition ${isActivePath('/resume') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>ATS Checker</Link>
                     </>
                   )}
                 </>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Lora, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Lora, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/CardNav";
 import ThemeProvider from "./components/ThemeProvider";
@@ -38,6 +38,13 @@ const jetbrains = JetBrains_Mono({
   display: 'swap',
 });
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: "Jobie — AI-Powered Job Matching",
   description: "Find your next role with GitHub verification and AI resume parsing",
@@ -51,7 +58,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${lora.variable} ${jetbrains.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${lora.variable} ${jetbrains.variable} ${spaceGrotesk.variable} antialiased`}
       >
         <ThemeProvider>
           <ToastProvider>

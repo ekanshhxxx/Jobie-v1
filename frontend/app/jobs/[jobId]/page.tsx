@@ -79,7 +79,7 @@ export default function JobDetailPage() {
 
   return (
     <>
-      {showAtsModal && <AtsModal jobId={job.id} onClose={() => setShowAtsModal(false)} />}
+      {showAtsModal && <AtsModal onClose={() => setShowAtsModal(false)} />}
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 py-12">
           {/* Header */}

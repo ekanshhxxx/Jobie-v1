@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import Profile from "../models/Profile";
+import { extractTextFromFile } from "../services/parserService";
 
 const uploadRoot = path.resolve(__dirname, "../../uploads");
 const avatarDir = path.join(uploadRoot, "avatars");
@@ -27,6 +28,8 @@ const resumeStorage = multer.diskStorage({
   }
 });
 
+const jdStorage = multer.memoryStorage();
+
 const avatarUpload = multer({
   storage: avatarStorage,
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -44,6 +47,19 @@ const resumeUpload = multer({
     else cb(new Error("Only PDF files are allowed"));
   }
 });
+
+const jdUpload = multer({
+  storage: jdStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "application/pdf" || file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF and DOCX files are allowed"));
+    }
+  },
+});
+
 
 const computeCompleteness = (data: any): number => {
   let score = 0;
@@ -72,6 +88,19 @@ const canEdit = (req: Request, userId: number) => {
 
 export const uploadAvatarMiddleware = avatarUpload.single("avatar");
 export const uploadResumeMiddleware = resumeUpload.single("resume");
+export const uploadJdMiddleware = jdUpload.single("file");
+
+export const parseJd = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    const text = await extractTextFromFile(req.file);
+    res.status(200).json({ text });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error parsing file", error: error.message });
+  }
+};
 
 export const uploadAvatar = async (req: Request, res: Response) => {
   try {

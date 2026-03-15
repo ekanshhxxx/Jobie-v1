@@ -3,6 +3,7 @@ import User from "./User";
 import Job from "./Job";
 import Application from "./Application";
 import Profile from "./Profile";
+import AtsCheck from "./AtsCheck";
 
 // Associations
 User.hasOne(Profile, { foreignKey: "userId", as: "profile" });
@@ -17,12 +18,16 @@ Application.belongsTo(Job, { foreignKey: "jobId" });
 User.hasMany(Job, { foreignKey: "recruiterId", as: "postedJobs" });
 Job.belongsTo(User, { foreignKey: "recruiterId", as: "recruiter" });
 
+User.hasMany(AtsCheck, { foreignKey: "userId", as: "atsChecks" });
+AtsCheck.belongsTo(User, { foreignKey: "userId" });
+
 const db = {
   sequelize,
   User,
   Job,
   Application,
-  Profile
+  Profile,
+  AtsCheck
 };
 
 export default db;
