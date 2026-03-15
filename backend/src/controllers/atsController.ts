@@ -154,7 +154,8 @@ export async function evaluateTextForUser(req: Request, res: Response) {
         summary: result.summary,
         stats,
         source,
-        jobDescriptionSnippet: jobDescription.slice(0, 220)
+        jobDescriptionSnippet: jobDescription.slice(0, 220),
+        analysisResult: result
       }
     });
   } catch (error: any) {
@@ -185,7 +186,14 @@ export async function getAtsHistory(req: Request, res: Response) {
       summary: c.summary,
       stats: c.stats,
       source: c.source,
-      jobDescriptionSnippet: (c.jobDescription || '').slice(0, 220)
+      jobDescriptionSnippet: (c.jobDescription || '').slice(0, 220),
+      analysisResult: {
+        matchScore: c.matchScore,
+        summary: c.summary,
+        matchedKeywords: c.matchedKeywords || [],
+        missingKeywords: c.missingKeywords || [],
+        stats: c.stats
+      }
     }));
 
     res.status(200).json({ history });

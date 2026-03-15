@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { api, uploadFile, getUser } from '../lib/api';
 import { Loader, UploadCloud, Target, Activity, Clock, ChevronRight, Zap, Shield, Check, X } from 'lucide-react';
 import Footer from '../components/footer';
+import LowScorePopup from '../components/LowScorePopup';
 
 interface AtsResult {
   matchScore: number;
@@ -30,6 +32,7 @@ interface HistoryItem {
   summary: string;
   source: string;
   jobDescriptionSnippet: string;
+  analysisResult?: any;
 }
 
 // Score → label + colour helpers
@@ -68,6 +71,7 @@ function CircleRing({ score }: { score: number }) {
 }
 
 export default function AtsCheckerPage() {
+  const router = useRouter();
   const [jobDescription, setJobDescription] = useState('');
   const [resumeText, setResumeText] = useState('');
   const [result, setResult] = useState<AtsResult | null>(null);
@@ -78,6 +82,7 @@ export default function AtsCheckerPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +105,7 @@ export default function AtsCheckerPage() {
   };
 
   useEffect(() => {
+    if (!showHistory && history.length > 0) return;
     const user = getUser();
     if (!user) return;
     setHistoryLoading(true);
@@ -107,7 +113,7 @@ export default function AtsCheckerPage() {
       .then(data => setHistory(data.history || []))
       .catch(() => {})
       .finally(() => setHistoryLoading(false));
-  }, []);
+  }, [showHistory]);
 
   const handleAnalysis = async () => {
     if (!jobDescription.trim() || !resumeText.trim()) {
@@ -134,6 +140,10 @@ export default function AtsCheckerPage() {
       clearInterval(interval);
       setResult(data);
       refreshHistory();
+      // Show roadmap popup for low scores
+      if (data.matchScore < 65) {
+        setTimeout(() => setShowPopup(true), 800);
+      }
     } catch (err: unknown) {
       clearInterval(interval);
       setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
@@ -243,10 +253,10 @@ export default function AtsCheckerPage() {
         </div>
 
         {/* ── Main two-column grid ─────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
 
           {/* ── LEFT: Inputs ─────────────────────────────────────────── */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-8">
 
             {/* JD card */}
             <div className="bg-white/[0.04] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] overflow-hidden hover:border-white/20 transition-all">
@@ -326,7 +336,7 @@ export default function AtsCheckerPage() {
           </div>
 
           {/* ── RIGHT: Results ──────────────────────────────────────── */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-8">
 
             {/* Score card */}
             <div className="bg-white/[0.04] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] p-8 relative overflow-hidden hover:border-white/20 transition-all">
@@ -369,9 +379,33 @@ export default function AtsCheckerPage() {
                       <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: scoreColor }} />
                       {scoreTag}
                     </div>
-                    <p className="text-sm text-white/60 leading-relaxed" style={{ fontFamily: 'var(--font-jetbrains, monospace)', fontSize: '11.5px' }}>
+                    <p className="text-sm text-white/60 leading-relaxed max-w-sm" style={{ fontFamily: 'var(--font-jetbrains, monospace)', fontSize: '11.5px' }}>
                       {result.summary}
                     </p>
+                  </div>
+
+                  {/* Roadmap CTA (Permanent) */}
+                  <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem('roadmap_jd', jobDescription);
+                        sessionStorage.setItem('roadmap_missing', JSON.stringify(result.missingKeywords));
+                        sessionStorage.setItem('roadmap_score', result.matchScore.toString());
+                        router.push('/roadmap');
+                      }}
+                      className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-xs text-white transition-all hover:scale-[1.02] active:scale-[0.98] border border-white/5"
+                      style={{
+                        fontFamily: 'var(--font-space-grotesk, sans-serif)',
+                        background: 'linear-gradient(135deg, rgba(10,132,255,0.2), rgba(56,189,248,0.2))',
+                        boxShadow: 'inset 0 0 12px rgba(10,132,255,0.2)',
+                      }}
+                    >
+                      <Zap size={14} className="text-[#38BDF8]" />
+                      Fix Gaps &rarr;
+                    </button>
+                    <span className="text-[9px] text-white/30 uppercase tracking-widest font-medium" style={{ fontFamily: 'var(--font-jetbrains, monospace)' }}>
+                      Generate AI Study Plan
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -389,7 +423,7 @@ export default function AtsCheckerPage() {
 
             {/* Analysis tabs card */}
             {result && (
-              <div className="bg-white/[0.04] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] overflow-hidden flex-1 flex flex-col hover:border-white/20 transition-all">
+              <div className="bg-white/[0.04] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] overflow-hidden flex-1 flex flex-col hover:border-white/20 transition-all mb-4">
                 {/* Tabs */}
                 <div className="flex border-b border-white/[0.08] bg-black/20">
                   {(['analysis', 'diagnostics', 'recommendations'] as const).map(tab => (
@@ -410,7 +444,7 @@ export default function AtsCheckerPage() {
                 </div>
 
                 {/* Tab content */}
-                <div className="p-6 flex-1 overflow-y-auto space-y-6" style={{ maxHeight: '480px' }}>
+                <div className="p-8 flex-1 overflow-y-auto space-y-8" style={{ maxHeight: '480px' }}>
 
                   {/* ── ANALYSIS TAB ── */}
                   {activeTab === 'analysis' && (
@@ -548,7 +582,11 @@ export default function AtsCheckerPage() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => setJobDescription(item.jobDescriptionSnippet)}
+                      onClick={() => {
+                        setJobDescription(item.jobDescriptionSnippet);
+                        setResult(item.analysisResult);
+                        setShowHistory(false);
+                      }}
                       className="bg-white/[0.03] backdrop-blur-3xl border border-white/[0.06] rounded-[1.5rem] p-5 cursor-pointer hover:bg-white/[0.07] hover:border-white/15 transition-all group flex flex-col justify-between"
                       style={{ borderColor: `${color}20` }}
                     >
@@ -564,8 +602,10 @@ export default function AtsCheckerPage() {
                         </div>
                         <p className="text-xs text-white/50 line-clamp-2 leading-relaxed" style={{ fontFamily: 'var(--font-jetbrains, monospace)' }}>{item.summary}</p>
                       </div>
-                      <div className="flex items-center gap-1 mt-4 text-[10px] text-white/25 group-hover:text-[#38BDF8] transition-colors uppercase tracking-widest font-medium" style={{ fontFamily: 'var(--font-jetbrains, monospace)' }}>
-                        Load JD <ChevronRight size={12} />
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-1 text-[10px] text-white/25 group-hover:text-[#38BDF8] transition-colors uppercase tracking-widest font-medium" style={{ fontFamily: 'var(--font-jetbrains, monospace)' }}>
+                          Restore Analysis <ChevronRight size={12} />
+                        </div>
                       </div>
                     </div>
                   );
@@ -578,6 +618,16 @@ export default function AtsCheckerPage() {
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <Footer />
+
+      {/* ── Low Score Popup ──────────────────────────────────────────── */}
+      {showPopup && result && (
+        <LowScorePopup
+          score={result.matchScore}
+          missingKeywords={result.missingKeywords}
+          jobDescription={jobDescription}
+          onDismiss={() => setShowPopup(false)}
+        />
+      )}
     </div>
   );
 }

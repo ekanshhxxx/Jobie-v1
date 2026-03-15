@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { verifyToken } from '../middleware/authMiddleware';
 import { evaluate, evaluateText, evaluateTextForUser, getAtsHistory } from '../controllers/atsController';
+import { generateRoadmapHandler, getSavedRoadmaps } from '../controllers/roadmapController';
 
 const router = Router();
 
@@ -15,5 +16,9 @@ router.post('/evaluate-text/:userId', verifyToken, evaluateTextForUser);
 
 // Route to fetch ATS history for a user
 router.get('/history/:userId', verifyToken, getAtsHistory);
+
+// Roadmap routes
+router.post('/roadmap/generate', generateRoadmapHandler);
+router.get('/roadmap/saved/:userId', verifyToken, getSavedRoadmaps);
 
 export default router;
