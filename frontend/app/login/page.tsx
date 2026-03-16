@@ -52,7 +52,7 @@ const githubProvider = new GithubAuthProvider();
     if (data.user.role === "recruiter") {
       router.push("/recruiter/dashboard");
     } else {
-      router.push("/candidate/dashboard");
+      router.push("/dashboard");
     }
 
   } catch (err: any) {
@@ -99,7 +99,7 @@ const handleGoogleLogin = async () => {
 if (data.user.role === "recruiter") {
   router.push("/recruiter/dashboard");
 } else {
-  router.push("/candidate/dashboard");
+  router.push("/dashboard");
 }
 
   } catch (err) {
@@ -135,7 +135,7 @@ const handleGithubLogin = async () => {
 if (data.user.role === "recruiter") {
   router.push("/recruiter/dashboard");
 } else {
-  router.push("/candidate/dashboard");
+  router.push("/dashboard");
 }
   } catch (err) {
     console.error("GitHub login failed", err);

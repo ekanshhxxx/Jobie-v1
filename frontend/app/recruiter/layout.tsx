@@ -6,12 +6,13 @@ export default function RecruiterLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex min-h-screen bg-white">
 
+      {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
-      <div className="ml-64 p-10">
+      <div className="flex-1 ml-64 p-10">
 
         {children}
 

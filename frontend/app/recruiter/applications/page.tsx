@@ -17,80 +17,64 @@ export default function Applications() {
   }, []);
 
   const fetchApplications = async () => {
+  try {
 
-    try {
+    setLoading(true);
 
-      setLoading(true);
+    const token = localStorage.getItem("token");
 
-      // Get recruiter jobs
-      const jobsRes = await fetch(
-        `http://localhost:4000/api/jobs/recruiter?recruiterId=${user?.id}`
-      );
-
-      const jobsData = await jobsRes.json();
-
-      const jobs = Array.isArray(jobsData)
-        ? jobsData
-        : jobsData.jobs || [];
-
-      let allApplications: any[] = [];
-
-      // Get applications for each job
-      for (const job of jobs) {
-
-        const res = await fetch(
-          `http://localhost:4000/api/applications/job/${job.id}`
-        );
-
-        const appsData = await res.json();
-
-        const apps = Array.isArray(appsData)
-          ? appsData
-          : appsData.applications || [];
-
-        const appsWithJob = apps.map((app: any) => ({
-          ...app,
-          jobTitle: job.title
-        }));
-
-        allApplications = [...allApplications, ...appsWithJob];
+    const res = await fetch(
+      `http://localhost:4000/api/applications/recruiter/${user?.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       }
+    );
 
-      setApplications(allApplications);
-      setLoading(false);
+    const data = await res.json();
 
-    } catch (error) {
+    console.log("Recruiter Applications:", data);
 
-      console.log(error);
-      setApplications([]);
-      setLoading(false);
+    setApplications(Array.isArray(data) ? data : data.applications || []);
 
-    }
-  };
+    setLoading(false);
 
-  const updateStatus = async (id:number,status:string) => {
+  } catch (error) {
 
-    try {
+    console.log(error);
+    setApplications([]);
+    setLoading(false);
 
-      await fetch(`http://localhost:4000/api/applications/${id}`,{
-        method:"PUT",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({status})
-      });
+  }
+};
 
-      fetchApplications();
+ const updateStatus = async (id:number,status:string) => {
 
-    } catch (error) {
-      console.log(error);
-    }
+  try {
 
-  };
+    const token = localStorage.getItem("token");
+
+    await fetch(`http://localhost:4000/api/applications/${id}`,{
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body:JSON.stringify({status})
+    });
+
+    fetchApplications();
+
+  } catch (error) {
+    console.log(error);
+  }
+
+};
 
   const getStatusColor = (status: string) => {
 
-    if (status === "accepted")
+    if (status === "shortlisted")
       return "bg-green-100 text-green-700";
 
     if (status === "rejected")
@@ -174,15 +158,15 @@ export default function Applications() {
                   </td>
 
                   <td className="p-4 font-medium">
-                    User {app.userId}
+                    {app.User?.name}
                   </td>
 
                   <td className="p-4 text-[#6B7280]">
-                    user{app.userId}@email.com
+                    {app.User?.email}
                   </td>
 
                   <td className="p-4">
-                    {app.jobTitle}
+                    {app.Job?.title}
                   </td>
 
                   <td className="p-4 text-sm text-gray-500">
@@ -194,7 +178,7 @@ export default function Applications() {
                     <span
                       className={`px-3 py-1 text-xs rounded-full ${getStatusColor(app.status)}`}
                     >
-                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                      {app.status === "shortlisted" ? "Accepted" : app.status}
                     </span>
 
                   </td>
@@ -203,10 +187,10 @@ export default function Applications() {
 
                     <div className="flex justify-center gap-2">
 
-                      {app.status === "pending" && (
+                      {app.status === "applied" && (
                         <>
                           <button
-                            onClick={()=>updateStatus(app.id,"accepted")}
+                            onClick={()=>updateStatus(app.id,"shortlisted")}
                             className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs transition"
                           >
                             Accept
@@ -221,7 +205,7 @@ export default function Applications() {
                         </>
                       )}
 
-                      {app.status === "accepted" && (
+                      {app.status === "shortlisted" && (
                         <span className="text-xs text-green-700 font-medium">
                           ✓ Accepted
                         </span>

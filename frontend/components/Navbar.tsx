@@ -1,64 +1,55 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { MessageCircle } from "lucide-react"
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/lib/user";
 
 export default function Navbar() {
+
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    setUser(getCurrentUser());
+  }, []);
+
   return (
-    <nav className="w-full bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+    <div className="w-full bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-gray-700 px-10 py-4 flex justify-between items-center">
 
-      {/* Logo */}
-      <Link
-        href="/candidate/jobs"
-        className="text-3xl font-bold text-blue-600"
-      >
+      {/* Left logo */}
+      <h1 className="text-xl font-semibold text-blue-600">
         Jobie
-      </Link>
+      </h1>
 
-      {/* Navigation */}
-      <div className="flex items-center gap-8 text-slate-600 font-medium">
 
-        <Link
-          href="/candidate/jobs"
-          className="hover:text-blue-600 transition-colors"
+      {/* Right user section */}
+      <div className="flex items-center gap-4">
+
+        {/* Dark toggle */}
+        <button className="w-10 h-10 rounded-full border flex items-center justify-center">
+          🌙
+        </button>
+
+        {/* Name */}
+        <span className="font-medium text-gray-800 dark:text-gray-200">
+          {user?.name}
+        </span>
+
+        {/* Role */}
+        <span className="bg-blue-100 text-blue-600 px-2 py-1 text-xs rounded-full">
+          recruiter
+        </span>
+
+        {/* Logout */}
+        <button
+          onClick={() => router.push("/login")}
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-1 rounded-lg"
         >
-          Find Jobs
-        </Link>
-
-        <Link
-          href="/candidate/applications"
-          className="hover:text-blue-600 transition-colors"
-        >
-          Applications
-        </Link>
-
-        <Link
-          href="/candidate/resume-parser"
-          className="hover:text-blue-600 transition-colors"
-        >
-          Resume Parser
-        </Link>
+          Logout
+        </button>
 
       </div>
 
-      {/* Right Section */}
-      <div className="flex items-center gap-6">
-
-        {/* Message Icon */}
-        <Link
-          href="/candidate/messages"
-          className="text-slate-600 hover:text-blue-600 transition"
-        >
-          <MessageCircle size={22} />
-        </Link>
-
-        {/* Profile */}
-        <Link href="/candidate/dashboard">
-          <div className="w-9 h-9 bg-slate-200 rounded-full hover:bg-slate-300 transition"></div>
-        </Link>
-
-      </div>
-
-    </nav>
-  )
+    </div>
+  );
 }

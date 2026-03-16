@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   PlusSquare,
@@ -8,9 +9,20 @@ import {
   FileText,
 } from "lucide-react";
 
+import { getCurrentUser } from "@/lib/user";
+
 export default function Sidebar() {
+
   const router = useRouter();
   const pathname = usePathname();
+
+  const [user, setUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setUser(getCurrentUser());
+  }, []);
 
   const menu = [
     {
@@ -39,7 +51,6 @@ export default function Sidebar() {
     <div className="w-64 h-screen fixed left-0 top-0 flex flex-col justify-between bg-white border-r border-[#E5E7EB] p-6">
 
       {/* Logo */}
-
       <div>
 
         <h1 className="text-2xl font-bold text-[#2563EB] mb-10">
@@ -47,7 +58,6 @@ export default function Sidebar() {
         </h1>
 
         {/* Menu */}
-
         <div className="flex flex-col gap-2">
 
           {menu.map((item) => {
@@ -83,21 +93,20 @@ export default function Sidebar() {
       </div>
 
       {/* Profile Section */}
-
       <div className="border-t border-[#E5E7EB] pt-4 flex items-center gap-3">
 
         <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white font-semibold">
-          J
+          {mounted ? user?.name?.charAt(0) : "U"}
         </div>
 
         <div>
 
           <p className="text-[#111827] font-medium">
-            John
+            {mounted ? user?.name : "User"}
           </p>
 
-          <p className="text-sm text-[#6B7280]">
-            Recruiter
+          <p className="text-sm text-[#6B7280] capitalize">
+            {mounted ? user?.role : "Recruiter"}
           </p>
 
         </div>

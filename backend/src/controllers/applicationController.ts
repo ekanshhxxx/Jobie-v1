@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import Application from "../models/Application";
+import User from "../models/User";
 import Job from "../models/Job";
+import Application from "../models/Application";
 
 /* ---------------- Apply for a job (Candidate) ---------------- */
 
@@ -62,7 +63,13 @@ export const getJobApplications = async (req: Request, res: Response) => {
     const jobId = Number(req.params.jobId);
 
     const applications = await Application.findAll({
-      where: { jobId }
+      where: { jobId },
+      include: [
+        {
+          model: User,
+          attributes: ["id", "name", "email"]
+        }
+      ]
     });
 
     res.status(200).json(applications);
@@ -81,33 +88,39 @@ export const getJobApplications = async (req: Request, res: Response) => {
 
 /* ---------------- Get applications for all jobs posted by a recruiter ---------------- */
 
-export const getRecruiterApplications = async (req: Request, res: Response) => {
 
+export const getRecruiterApplications = async (req: Request, res: Response) => {
   try {
 
     const recruiterId = Number(req.params.recruiterId);
 
-    const jobs = await Job.findAll({
-      where: { recruiterId }
-    });
-
-    const jobIds = jobs.map((job: any) => job.id);
-
     const applications = await Application.findAll({
-      where: { jobId: jobIds }
+      include: [
+        {
+          model: Job,
+          as: "Job",
+          where: { recruiterId },
+          attributes: ["id", "title"]
+        },
+        {
+          model: User,
+          as: "User",
+          attributes: ["id", "name", "email"]
+        }
+      ]
     });
 
     res.status(200).json(applications);
 
   } catch (error) {
 
+    console.error(error);
+
     res.status(500).json({
-      message: "Error fetching recruiter applications",
-      error
+      message: "Error fetching recruiter applications"
     });
 
   }
-
 };
 
 
