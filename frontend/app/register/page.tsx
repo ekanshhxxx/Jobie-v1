@@ -43,13 +43,19 @@ const submit = async (e: React.FormEvent) => {
 const firebaseUser = userCredential.user;
 
 // GET FIREBASE TOKEN
-const token = await firebaseUser.getIdToken();
+// const token = await firebaseUser.getIdToken();
+
+// const data = await api.post('/api/auth/register', {
+//   ...form,
+//   token
+// });
+    
+const firebaseUid = firebaseUser.uid;
 
 const data = await api.post('/api/auth/register', {
   ...form,
-  token
+  firebaseUid
 });
-    
 
 
     setAuth(data.token, data.user);

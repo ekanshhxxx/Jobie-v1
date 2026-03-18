@@ -24,7 +24,8 @@ export const register = async (req: Request, res: Response) => {
       name,
       email,
       password: hashedPassword,
-      role
+      role,
+      firebaseUid
     });
 
     // issue JWT
@@ -34,10 +35,15 @@ export const register = async (req: Request, res: Response) => {
       { expiresIn: "1h" }
     );
 
+    // res.status(201).json({
+    //   message: "User registered successfully",
+    //   token
+    // });
     res.status(201).json({
-      message: "User registered successfully",
-      token
-    });
+  message: "User registered successfully",
+  token,
+  user: newUser
+});
   } catch (err) {
     res.status(500).json({ message: "Registration failed", error: err });
   }
@@ -223,7 +229,12 @@ export const firebaseLogin = async (req: Request, res: Response) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
-    const { uid, email, name } = decodedToken;
+   const { uid, email, name } = decodedToken;
+
+if (!email) {
+  return res.status(400).json({ message: "Email not available from Firebase" });
+}
+    
 
     let user = await User.findOne({ where: { firebaseUid: uid } });
 
@@ -239,6 +250,7 @@ export const firebaseLogin = async (req: Request, res: Response) => {
         });
       } else {
         user.firebaseUid = uid;
+        user.password = null;
         await user.save();
       }
     }
