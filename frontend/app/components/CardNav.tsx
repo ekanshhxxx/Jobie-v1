@@ -50,7 +50,7 @@ const navItems: CardNavItem[] = [
     bgDark: 'rgba(39,30,55,0.75)',
     textLight: '#4a2d8a',
     links: [
-      { label: 'Learning Paths', href: '/dashboard', ariaLabel: 'Learning Paths' },
+      { label: 'Learning Paths', href: '/candidate/dashboard', ariaLabel: 'Learning Paths' },
       { label: 'Skill Gaps', href: '/profile/edit', ariaLabel: 'Skill Gap Analysis' },
     ],
   },
@@ -76,9 +76,8 @@ export default function CardNav() {
   }, [pathname]);
 
   const isDark = mounted && resolvedTheme === 'dark';
-  const profileHref = user
-    ? (user.role === 'candidate' ? `/profile/${user.id}` : `/profile/${user.id}`)
-    : '/login';
+  const profileHref = user ? `/profile/${user.id}` : '/login';
+  const dashboardHref = user?.role === 'candidate' ? '/candidate/dashboard' : '/recruiter/dashboard';
 
   const logout = () => {
     const name = user?.name?.split(' ')[0] ?? 'User';
@@ -185,6 +184,11 @@ export default function CardNav() {
   };
 
   const lineColor = isDark ? '#fff' : '#333';
+  const hideOnWorkspaceRoute = pathname.startsWith('/candidate') || pathname.startsWith('/recruiter') || pathname.startsWith('/admin');
+
+  if (hideOnWorkspaceRoute) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 px-4 pt-3 pb-1">
@@ -238,11 +242,11 @@ export default function CardNav() {
             <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               {user ? (
                 <>
-                  <Link href="/dashboard" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Dashboard</Link>
+                  <Link href={dashboardHref} className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Dashboard</Link>
                   <Link href="/jobs" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Jobs</Link>
                   {user.role === 'candidate' && (
                     <>
-                      <Link href="/profile/edit" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Profile</Link>
+                      <Link href={profileHref} className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Profile</Link>
                       <Link href="/resume" className="text-gray-600 dark:text-white/70 hover:text-[#2563EB] dark:hover:text-white transition">Resume AI</Link>
                     </>
                   )}
@@ -276,6 +280,12 @@ export default function CardNav() {
               )}
               {user ? (
                 <>
+                  <Link
+                    href={profileHref}
+                    className="sm:hidden text-xs bg-blue-100 dark:bg-violet-500/20 text-blue-700 dark:text-violet-300 px-2.5 py-1 rounded-full font-medium"
+                  >
+                    Profile
+                  </Link>
                   <Link
                     href={profileHref}
                     className="text-sm font-medium text-gray-700 dark:text-white/80 hidden sm:block hover:text-[#2563EB] dark:hover:text-white transition"
@@ -343,10 +353,12 @@ export default function CardNav() {
               >
                 <div className="font-semibold tracking-tight text-lg">{item.label}</div>
                 <div className="mt-auto flex flex-col gap-1">
-                  {item.links.map((lnk) => (
+                  {item.links.map((lnk) => {
+                    const href = lnk.ariaLabel === 'Learning Paths' ? dashboardHref : lnk.href;
+                    return (
                     <Link
                       key={lnk.label}
-                      href={lnk.href}
+                      href={href}
                       className="inline-flex items-center gap-1.5 no-underline cursor-pointer transition-opacity duration-200 hover:opacity-70 text-sm"
                       aria-label={lnk.ariaLabel}
                       onClick={closeMenu}
@@ -354,7 +366,8 @@ export default function CardNav() {
                       <GoArrowUpRight className="shrink-0" aria-hidden="true" />
                       {lnk.label}
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

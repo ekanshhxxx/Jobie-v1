@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, getUser, API_BASE_URL } from '../../lib/api';
+import { api, getUser, API_BASE_URL, isApiError } from '../../lib/api';
 import { User, Profile } from '../../components/types';
 import ProfileHeader from '../../components/ProfileHeader';
 import SkillGraph from '../../components/SkillGraph';
-import { Briefcase, GraduationCap, Code, Github, Share2, FileText, Edit3, Star, ArrowRight, ExternalLink } from 'lucide-react';
+import GitHubDeepCard from '../../components/GitHubDeepCard';
+import ResumeReportCard from '../../components/ResumeReportCard';
+import { Briefcase, GraduationCap, Code, Share2, FileText, Edit3, Star, ArrowRight } from 'lucide-react';
 
 export default function PublicProfilePage() {
   const router = useRouter();
@@ -36,8 +38,14 @@ export default function PublicProfilePage() {
         const data = await api.get(`/api/profile/view/${userId}`);
         setUser(data.user ?? null);
         setProfile(data.profile ?? null);
-      } catch (err) {
-        console.error(err);
+      } catch (err: unknown) {
+        // Missing/invalid profile route should render the "Profile not found" state silently.
+        if (isApiError(err) && err.status === 404) {
+          setUser(null);
+          setProfile(null);
+        } else {
+          console.error(err);
+        }
       } finally {
         setLoading(false);
       }
@@ -57,6 +65,10 @@ export default function PublicProfilePage() {
     ? (profile.resumeUrl.startsWith('http') ? profile.resumeUrl : `${API_BASE_URL}${profile.resumeUrl}`)
     : '';
   const canEdit = viewer?.id === user.id;
+  const openResume = () => {
+    if (!resumeHref) return;
+    window.open(resumeHref, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -69,9 +81,14 @@ export default function PublicProfilePage() {
             <div className="bg-white dark:bg-gray-800/50 p-6 rounded-2xl shadow-lg">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Actions</h3>
               <div className="flex flex-col space-y-3">
-                <a href={resumeHref || '#'} target={resumeHref ? '_blank' : undefined} rel="noreferrer" className={`flex items-center gap-3 w-full text-left px-4 py-2 rounded-lg transition-colors ${resumeHref ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
+                <button
+                  type="button"
+                  onClick={openResume}
+                  disabled={!resumeHref}
+                  className={`flex items-center gap-3 w-full text-left px-4 py-2 rounded-lg transition-colors ${resumeHref ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                >
                   <FileText size={18} /><span>View Resume</span>
-                </a>
+                </button>
                 <button onClick={async () => await navigator.clipboard.writeText(window.location.href)} className="flex items-center gap-3 w-full text-left px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                   <Share2 size={18} /><span>Share Profile</span>
                 </button>
@@ -93,18 +110,13 @@ export default function PublicProfilePage() {
               </div>
             </div>
 
-            {profile.githubUsername && (
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-2xl shadow-lg">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><Github size={20}/> GitHub</h3>
-                <a href={`https://github.com/${profile.githubUsername}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 dark:text-blue-400 hover:underline flex items-center gap-2">
-                  @{profile.githubUsername} <ExternalLink size={14} />
-                </a>
-              </div>
-            )}
+            {profile.githubDeepScan && <GitHubDeepCard scan={profile.githubDeepScan} />}
           </div>
 
           {/* Right Column */}
           <div className="lg:col-span-2 space-y-8">
+            {profile.resumeReport && <ResumeReportCard report={profile.resumeReport} />}
+
             <div className="bg-white dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">About</h3>
               <p className="text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">{profile.bio}</p>

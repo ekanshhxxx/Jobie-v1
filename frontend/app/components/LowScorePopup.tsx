@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Zap, X, ArrowRight, Meh } from 'lucide-react';
+import { Zap, X, ArrowRight } from 'lucide-react';
 
 interface LowScorePopupProps {
   score: number;
@@ -29,7 +29,6 @@ const MESSAGES: Record<string, { headline: string; sub: string }> = {
 export default function LowScorePopup({ score, missingKeywords, jobDescription, onDismiss }: LowScorePopupProps) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 600);
@@ -159,7 +158,6 @@ export default function LowScorePopup({ score, missingKeywords, jobDescription, 
             <div className="flex gap-3">
               <button
                 onClick={handleBuildRoadmap}
-                disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{
                   fontFamily: 'var(--font-space-grotesk, sans-serif)',
@@ -176,7 +174,7 @@ export default function LowScorePopup({ score, missingKeywords, jobDescription, 
                 className="px-5 py-3.5 rounded-2xl text-sm font-medium text-white/40 hover:text-white/70 hover:bg-white/5 border border-white/10 transition-all flex items-center gap-1.5"
                 style={{ fontFamily: 'var(--font-jetbrains, monospace)' }}
               >
-                Actually, I'm good
+                Actually, I&apos;m good
               </button>
             </div>
           </div>

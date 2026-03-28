@@ -45,6 +45,16 @@ const Job = sequelize.define("Job", {
     defaultValue: "mid"
   },
 
+  lifecycleStatus: {
+    type: DataTypes.ENUM("draft", "published", "closed"),
+    defaultValue: "published"
+  },
+
+  approvalStatus: {
+    type: DataTypes.ENUM("approved", "pending_review", "rejected"),
+    defaultValue: "approved"
+  },
+
   recruiterId: {
     type: DataTypes.INTEGER,
     allowNull: true

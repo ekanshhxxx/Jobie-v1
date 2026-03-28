@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
-import { analyseGitHubProfile } from "../services/githubService";
-import Profile from "../models/Profile";
+import { analyseGitHubProfile, deepScanGitHubProfile, resolveGitHubIdentity } from "../services/githubService";
+import { getProfileWithFallback, getUserWithFallback, saveProfileDual } from "../services/dbFallbackService";
+import { AuthRequest } from "../middleware/authMiddleware";
 
 // ─── GET /api/github/analyse/:username ────────────────────────────────────────
-// Standalone: analyse any GitHub user (no login required for public data)
+// Public: quick analysis (no AI narrative, no deep bio) — no auth required
 export const analyseUser = async (req: Request, res: Response) => {
   try {
     const username = req.params.username as string;
@@ -12,95 +13,166 @@ export const analyseUser = async (req: Request, res: Response) => {
     const analysis = await analyseGitHubProfile(username);
     res.status(200).json(analysis);
   } catch (error: any) {
-    if (error.response?.status === 404) {
+    if (error.response?.status === 404)
       return res.status(404).json({ message: `GitHub user "${req.params.username}" not found` });
-    }
-    if (error.response?.status === 403) {
+    if (error.response?.status === 403)
       return res.status(429).json({ message: "GitHub API rate limit exceeded. Try again later." });
-    }
     res.status(500).json({ message: "Error analysing GitHub profile", error: error.message });
   }
 };
 
 // ─── POST /api/github/verify/:userId ─────────────────────────────────────────
-// Analyse the GitHub user linked to a profile, then save verified skills back.
-// Needs auth (handled at route level).
+// Protected: deep scan the linked GitHub, save all data + AI narrative to profile
 export const verifyAndSave = async (req: Request, res: Response) => {
   try {
+    const requester = (req as AuthRequest).user;
     const userId = Number(req.params.userId);
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (requester.role !== "admin" && requester.id !== userId) {
+      return res.status(403).json({ message: "You can only verify your own GitHub profile." });
+    }
 
-    const profile = await Profile.findOne({ where: { userId } });
+    const { data: user } = await getUserWithFallback(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { data: profile } = await getProfileWithFallback(userId);
     if (!profile) return res.status(404).json({ message: "Profile not found" });
 
-    const rawUsername = (profile as any).githubUsername;
-    const githubUsername = typeof rawUsername === "string"
-      ? rawUsername.trim().replace(/^@+/, "")
-      : "";
+    const normalizeUsername = (v: unknown) =>
+      typeof v === "string" ? v.trim().replace(/^@+/, "") : "";
+
+    const requestedUsername = normalizeUsername((req.body as any)?.githubUsername);
+    const storedUsername = normalizeUsername((profile as any).githubUsername);
+    const githubUsername = requestedUsername || storedUsername;
+
+    // If the client explicitly requested a new username, persist it first and
+    // clear stale scan artifacts before generating a new scan.
+    if (requestedUsername && requestedUsername !== storedUsername) {
+      await saveProfileDual(userId, {
+        githubUsername: requestedUsername,
+        githubVerifiedSkills: [],
+        githubDeepScan: null,
+      });
+    }
+
     if (!githubUsername) {
       return res.status(400).json({ message: "No GitHub username set on this profile. Update profile first." });
     }
 
-    const analysis = await analyseGitHubProfile(githubUsername);
+    const linkedGithubUid = typeof (user as any).githubUid === "string"
+      ? String((user as any).githubUid)
+      : "";
+    if (!linkedGithubUid) {
+      return res.status(403).json({
+        message: "For security, connect this account with GitHub login first before running Deep Scan.",
+        code: "GITHUB_ACCOUNT_NOT_LINKED",
+      });
+    }
 
-    // Merge verified skill names into profile
-    const verifiedSkillNames = analysis.verifiedSkills.map((s) => s.skill);
+    const identity = await resolveGitHubIdentity(githubUsername);
+    if (identity.id !== linkedGithubUid) {
+      return res.status(403).json({
+        message: "This username does not match your connected GitHub account.",
+        code: "GITHUB_USERNAME_MISMATCH",
+        expectedGithubUid: linkedGithubUid,
+        scannedGithubUid: identity.id,
+        scannedUsername: identity.login,
+      });
+    }
 
-    // Also merge into main skills (union, no duplicates)
+    // Full deep scan (skills + bio + pinned repos + lang breakdown + commits + AI narrative)
+    const scan = await deepScanGitHubProfile(githubUsername);
+
+    // Replace only previously GitHub-derived skills, keep manual profile skills intact.
+    const verifiedSkillNames = scan.verifiedSkills.map(s => s.skill);
     const currentSkills: string[] = (profile as any).skills || [];
+    const previousVerified: string[] = ((profile as any).githubVerifiedSkills || [])
+      .map((s: any) => (typeof s === "string" ? s : s?.skill))
+      .filter((s: any): s is string => typeof s === "string");
     const normalize = (s: string) => s.toLowerCase().trim();
-    const currentNorm = currentSkills.map(normalize);
+    const previousVerifiedNorm = previousVerified.map(normalize);
+    const manualSkills = currentSkills.filter((s) => !previousVerifiedNorm.includes(normalize(s)));
+    const manualNorm = manualSkills.map(normalize);
     const newSkills = [
-      ...currentSkills,
-      ...verifiedSkillNames.filter((s) => !currentNorm.includes(normalize(s)))
+      ...manualSkills,
+      ...verifiedSkillNames.filter(s => !manualNorm.includes(normalize(s))),
     ];
 
-    // Recompute completeness
-    const updated = { ...(profile as any).dataValues, skills: newSkills, githubVerifiedSkills: analysis.verifiedSkills };
-    let completeness = 0;
-    if (updated.bio) completeness += 10;
-    if (updated.skills?.length > 0) completeness += 20;
-    if (updated.experience?.length > 0) completeness += 20;
-    if (updated.education?.length > 0) completeness += 15;
-    if (updated.projects?.length > 0) completeness += 20;
-    if (updated.githubUsername) completeness += 10;
-    if (updated.githubVerifiedSkills?.length > 0) completeness += 5;
-
-    await profile.update({
-      githubVerifiedSkills: analysis.verifiedSkills,
+    const updateData = {
+      githubUsername,
+      githubVerifiedSkills: scan.verifiedSkills,
+      githubDeepScan: scan,
       skills: newSkills,
-      profileCompleteness: completeness
-    });
+    };
+
+    const { mysqlResult, mongoResult } = await saveProfileDual(userId, updateData);
+    const finalProfile = mysqlResult || mongoResult;
 
     res.status(200).json({
-      message: "GitHub skills verified and saved",
+      message: "GitHub deep scan complete and saved",
       username: githubUsername,
-      verifiedSkills: analysis.verifiedSkills,
+      verifiedSkills: scan.verifiedSkills,
       updatedSkills: newSkills,
-      profileCompleteness: completeness,
-      topLanguages: analysis.topLanguages,
-      activityScore: analysis.activityScore,
-      totalStars: analysis.totalStars,
-      publicRepos: analysis.publicRepos,
+      profileCompleteness: (finalProfile as any).profileCompleteness,
+      topLanguages: scan.topLanguages,
+      activityScore: scan.activityScore,
+      totalStars: scan.totalStars,
+      publicRepos: scan.publicRepos,
+      recentCommits: scan.recentCommits,
+      pinnedReposCount: scan.pinnedRepos.length,
+      aiNarrative: scan.aiNarrative,
     });
   } catch (error: any) {
-    if (error.response?.status === 404) {
+    if (error.response?.status === 404)
       return res.status(404).json({ message: "GitHub user not found" });
-    }
-    if (error.response?.status === 403) {
+    if (error.response?.status === 403)
       return res.status(429).json({ message: "GitHub API rate limit exceeded. Try again later." });
+    res.status(500).json({ message: "Error during GitHub deep scan", error: error.message });
+  }
+};
+
+// ─── GET /api/github/deep/:userId ─────────────────────────────────────────────
+// Protected: return the stored githubDeepScan from DB (no live API call)
+export const getDeepScan = async (req: Request, res: Response) => {
+  try {
+    const requester = (req as AuthRequest).user;
+    const userId = Number(req.params.userId);
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-    res.status(500).json({ message: "Error verifying GitHub skills", error: error.message });
+    if (requester.role !== "admin" && requester.id !== userId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const { data: profile } = await getProfileWithFallback(userId);
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    const scan = (profile as any).githubDeepScan;
+    if (!scan) {
+      return res.status(404).json({ message: "No GitHub scan found. Click 'Scan GitHub' first." });
+    }
+    res.status(200).json({ userId, githubDeepScan: scan });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching GitHub scan", error: error.message });
   }
 };
 
 // ─── GET /api/github/compare/:userId/:jobId ──────────────────────────────────
-// Compare GitHub-verified skills against a job's requirements
+// Protected: compare GitHub-verified skills against a job's requirements
 export const compareWithJob = async (req: Request, res: Response) => {
   try {
+    const requester = (req as AuthRequest).user;
     const userId = Number(req.params.userId);
     const jobId = Number(req.params.jobId);
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (requester.role !== "admin" && requester.id !== userId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
-    const profile = await Profile.findOne({ where: { userId } });
+    const { data: profile } = await getProfileWithFallback(userId);
     if (!profile) return res.status(404).json({ message: "Profile not found" });
 
     const Job = (await import("../models/Job")).default;
@@ -114,30 +186,24 @@ export const compareWithJob = async (req: Request, res: Response) => {
     const normalize = (s: string) => s.toLowerCase().trim();
     const verifiedNorm = verifiedSkills.map((v: any) => normalize(typeof v === "string" ? v : v.skill));
 
-    const verifiedMatch = requiredSkills.filter((s) => verifiedNorm.includes(normalize(s)));
-    const verifiedMissing = requiredSkills.filter((s) => !verifiedNorm.includes(normalize(s)));
-    const techMatch = techStack.filter((s) => verifiedNorm.includes(normalize(s)));
-    const techMissing = techStack.filter((s) => !verifiedNorm.includes(normalize(s)));
+    const verifiedMatch = requiredSkills.filter(s => verifiedNorm.includes(normalize(s)));
+    const verifiedMissing = requiredSkills.filter(s => !verifiedNorm.includes(normalize(s)));
+    const techMatch = techStack.filter(s => verifiedNorm.includes(normalize(s)));
+    const techMissing = techStack.filter(s => !verifiedNorm.includes(normalize(s)));
 
     const credibilityScore = requiredSkills.length > 0
       ? Math.round((verifiedMatch.length / requiredSkills.length) * 100)
       : 100;
 
     res.status(200).json({
-      userId,
-      jobId,
-      jobTitle: (job as any).title,
-      credibilityScore,
-      verifiedMatch,
-      verifiedMissing,
-      techMatch,
-      techMissing,
+      userId, jobId, jobTitle: (job as any).title,
+      credibilityScore, verifiedMatch, verifiedMissing, techMatch, techMissing,
       totalVerifiedSkills: verifiedSkills.length,
       message: credibilityScore >= 80
         ? "Strong GitHub-verified match!"
         : credibilityScore >= 50
           ? "Moderate match — some skills need proof."
-          : "Low verified match — consider building projects for missing skills."
+          : "Low verified match — consider building projects for missing skills.",
     });
   } catch (error: any) {
     res.status(500).json({ message: "Error comparing skills", error: error.message });

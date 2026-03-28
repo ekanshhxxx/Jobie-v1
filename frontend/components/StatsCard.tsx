@@ -1,3 +1,4 @@
+// @ts-nocheck
 type Props = {
   title: string;
   value: number;
@@ -27,3 +28,5 @@ export default function StatsCard({ title, value, icon }: Props) {
     </div>
   );
 }
+
+

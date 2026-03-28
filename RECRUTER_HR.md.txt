@@ -1,0 +1,112 @@
+JOBIE HR Dashboard - Comprehensive Feature List
+Core Multi-Tenant Architecture
+Complete Data Isolation: Separate workspaces for each company with zero cross-company data visibility
+Role-Based Access Control: Admin, recruiter, and viewer roles with granular permissions
+Company Workspace Switching: Dropdown selector to switch between multiple company accounts
+Multi-Tenant Database Schema: 13 tables with company_id filtering on all queries
+Authentication & Security
+ OAuth Integration: Secure single sign-on 
+Session Management: Persistent login state with secure cookie handling
+Company Access Verification: Every API call verifies user has access to requested company
+User Profile Management: Display current user info with logout functionality
+Candidate Management Module
+Candidate List View: Paginated table with all candidate information
+Advanced Filtering: Filter by role type (tech/non-tech), experience level, application status, and position
+Real-Time Search: Search candidates by name, email, and other fields
+Application Status Tracking: Track candidates through applied → shortlisted → interview → hired/rejected pipeline
+Bulk Candidate Operations: Add, update, and manage multiple candidates
+Candidate Skills Tagging: Store and display candidate skills with badge visualization
+Portfolio & Cover Letter Storage: Store candidate portfolio URLs and cover letters
+Candidate Detail Modal
+Full Profile Display: Comprehensive candidate information in modal interface
+Contact Information: Email, phone, position, and application date
+Role Type & Experience: Display tech/non-tech classification and experience level
+Skills Visualization: Display candidate skills as interactive badges
+Portfolio Links: Direct links to candidate portfolios
+Cover Letter Preview: Display candidate cover letters in formatted text
+Application History & Timeline
+Status Change History: Complete timeline of all application status changes
+Change Reasons: Record why status was changed with optional notes
+Timestamp Tracking: All changes timestamped for audit trail
+Visual Timeline: Chronological display of candidate journey
+Interview & Meeting Management
+Meeting Scheduling: Schedule interviews with candidates
+Meeting Types: Support for phone, video, and in-person meetings
+Meeting Details: Store title, description, date, time, and duration
+Meeting Links: Store video conference links (Zoom, Google Meet, etc.)
+Meeting Status Tracking: Track meeting status (scheduled, completed, cancelled, no_show)
+Meeting History: View all past and upcoming meetings for each candidate
+Recruiter Notes System
+Add Notes: Recruiters can add detailed notes about candidates
+Private Notes: Mark notes as private for internal use only
+Note History: View all notes with timestamps and author information
+Note Organization: Notes displayed chronologically in candidate modal
+Dashboard & Analytics
+Recruitment Metrics: Display total candidates, shortlisted count, hired count, conversion rate
+Stats Cards: Visual cards showing key recruitment KPIs
+Employee Satisfaction Trend Chart: Time-series line chart tracking satisfaction ratings
+Attendance Heatmap: Department-level attendance visualization with color-coded patterns
+Attendance Breakdown: Show present, half-day, leave, and absent status by department
+Recent Activity Feed: Display recent hire and departure events
+Event Timeline: Visual timeline of recruitment milestones
+UI/UX Design
+Minimal Aesthetic: Clean, minimal design with rounded corners
+Color Scheme: White background with soft teal accents and coral highlights
+Responsive Layout: Fully responsive design for mobile, tablet, and desktop
+Collapsible Sidebar: Sidebar navigation that collapses for better space utilization
+Dark/Light Theme Support: Theme provider with CSS variable system
+Icon Integration: Lucide React icons throughout interface
+Loading States: Skeleton loaders and spinners for async operations
+Empty States: Helpful messages when no data is available
+Toast Notifications: Real-time feedback for user actions (success/error)
+Navigation & Layout
+Sidebar Navigation: Quick access to Candidates, Dashboard, Meetings, Analytics
+Company Selector: Dropdown to switch between company workspaces
+User Profile Menu: Access to user info and logout
+Persistent Navigation: Sidebar remains accessible across all pages
+Active Page Indicator: Visual indication of current page in navigation
+Data Management
+tRPC Type-Safe API: End-to-end type safety from database to frontend
+Optimistic Updates: Instant UI feedback for mutations
+Error Handling: Comprehensive error handling with user-friendly messages
+Loading States: Loading indicators for all async operations
+Data Validation: Zod schema validation on all inputs
+Database Features
+Application History Table: Track all status changes with reasons
+Recruiter Notes Table: Store internal notes with privacy controls
+Meetings Table: Store interview scheduling information
+Candidates Table: Comprehensive candidate information storage
+Attendance Records: Employee attendance tracking
+Satisfaction Surveys: Employee satisfaction data
+Hire/Departure Events: Track onboarding and exit events
+Resume Storage Metadata: Track uploaded resume information
+Notifications: Store candidate notifications
+Planned Features (In Development)
+Resume Upload to S3: Upload candidate resumes to cloud storage
+PDF Resume Preview: Embedded PDF viewer in candidate modal
+LLM-Powered Candidate Analysis: AI-driven candidate matching and screening
+Automatic Email Notifications: Send emails to candidates for shortlisting and meetings
+Meeting Scheduler Calendar: Calendar widget for selecting interview times
+Skill-Based Filtering: Advanced filtering by specific skills
+Date Range Filtering: Filter candidates by application date range
+Candidate Bulk Actions: Bulk status updates and messaging
+Analytics Dashboard: Advanced recruitment analytics and reporting
+Export Functionality: Export candidate lists and reports to CSV/PDF
+Security & Compliance
+Multi-Tenant Data Isolation: Strict separation of company data
+Access Control: Verify user access on every API call
+Secure Authentication: OAuth-based authentication
+Data Encryption: Secure storage of sensitive information
+Audit Trail: Complete history of all changes and actions
+Performance Optimizations
+Indexed Queries: Database indexes on frequently queried fields
+Lazy Loading: Load data only when needed
+Memoization: Prevent unnecessary re-renders
+Query Optimization: Efficient database queries with proper joins
+CDN Support: Ready for CDN-based asset delivery
+Integration Capabilities
+S3 Cloud Storage: Integration with AWS S3 for file storage
+Email Notifications: Ready for email notification service integration
+LLM Integration: Built-in LLM helpers for AI features
+Google Maps: Pre-configured map integration (if needed)
+OAuth:  OAuth platform integration

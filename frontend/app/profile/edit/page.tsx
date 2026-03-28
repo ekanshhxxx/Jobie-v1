@@ -3,8 +3,9 @@
 import { useEffect, useState, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getUser, uploadFile, API_BASE_URL } from '../../lib/api';
-import { User, Profile } from '../../components/types';
-import { Camera, Save, Github, Eye, Loader, FileText, UploadCloud, AlertCircle } from 'lucide-react';
+import { User, Profile, ResumeReportCard as ReportType } from '../../components/types';
+import ResumeReportCard from '../../components/ResumeReportCard';
+import { Camera, Save, Github, Eye, Loader, UploadCloud, AlertCircle } from 'lucide-react';
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ProfileEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [form, setForm] = useState({
     headline: '',
@@ -62,6 +64,13 @@ export default function ProfileEditPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const normalizeExternalUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -71,6 +80,8 @@ export default function ProfileEditPage() {
     const payload = {
       ...form,
       skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
+      website: normalizeExternalUrl(form.website),
+      linkedin: normalizeExternalUrl(form.linkedin),
     };
 
     try {
@@ -113,7 +124,7 @@ export default function ProfileEditPage() {
         setForm((f) => ({ ...f, githubUsername: cleaned }));
       }
       await api.put(`/api/profile/${user.id}`, { githubUsername: cleaned });
-      const data = await api.post(`/api/github/verify/${user.id}`);
+      const data = await api.post(`/api/github/verify/${user.id}`, { githubUsername: cleaned });
       const count = data.verifiedSkills?.length ?? 0;
       setMessage({ text: `GitHub verified! Found ${count} skill${count !== 1 ? 's' : ''}.`, ok: true });
       await loadProfile(user.id);
@@ -121,6 +132,29 @@ export default function ProfileEditPage() {
       setMessage({ text: err instanceof Error ? err.message : 'Verification failed', ok: false });
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleResumeUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setParsing(true);
+    setMessage(null);
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    try {
+      const data = await uploadFile(`/api/resume/parse-and-save/${user.id}`, formData);
+      setMessage({ text: 'Resume parsed and profile magic-filled successfully!', ok: true });
+      if (data.resumeReport) {
+        setProfile(p => p ? { ...p, resumeReport: data.resumeReport as ReportType } : null);
+      }
+      await loadProfile(user.id);
+    } catch (err: unknown) {
+      setMessage({ text: err instanceof Error ? err.message : 'Resume parsing failed', ok: false });
+    } finally {
+      setParsing(false);
     }
   };
 
@@ -190,15 +224,37 @@ export default function ProfileEditPage() {
               <label htmlFor="skills" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Skills <span className="text-gray-400">(comma-separated)</span></label>
               <input id="skills" name="skills" value={form.skills} onChange={handleInputChange} placeholder="e.g. React, Node.js, Python" className="w-full bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
-            <div>
+            <div className="pt-4">
               <label htmlFor="githubUsername" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">GitHub Username</label>
               <div className="flex gap-2">
                 <input id="githubUsername" name="githubUsername" value={form.githubUsername} onChange={handleInputChange} placeholder="Your GitHub username" className="w-full bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                <button type="button" onClick={verifyGitHub} disabled={verifying} className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-700 disabled:opacity-50 transition">
+                <button type="button" onClick={verifyGitHub} disabled={verifying} className="flex whitespace-nowrap items-center gap-2 bg-gray-800 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-700 disabled:opacity-50 transition shadow-md hover:shadow-lg">
                   {verifying ? <Loader size={16} className="animate-spin" /> : <Github size={16} />}
-                  {verifying ? 'Verifying...' : 'Verify'}
+                  {verifying ? 'Scanning...' : 'Deep Scan GitHub'}
                 </button>
               </div>
+              <p className="text-xs text-gray-400 mt-2">Deep Scan fetches pinned repos, language byte-analysis, commit history, and generates an AI narrative for your profile.</p>
+            </div>
+            
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3">Resume Parser</h3>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-5 py-3 rounded-xl border-2 border-dashed border-blue-200 dark:border-blue-700/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 transition w-full sm:w-auto">
+                  {parsing ? <Loader size={20} className="animate-spin" /> : <UploadCloud size={20} />}
+                  <span className="text-sm font-semibold">{parsing ? 'Parsing with AI...' : 'Upload PDF Resume'}</span>
+                  <input type="file" accept=".pdf" className="hidden" onChange={handleResumeUpload} disabled={parsing} />
+                </label>
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex-1">
+                  Upload your PDF resume to instantly auto-fill your profile experience, education, and skills. AI will also generate a private Report Card for you.
+                </div>
+              </div>
+              
+              {profile?.resumeReport && (
+                <div className="mt-6">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Latest Resume Scan</h4>
+                  <ResumeReportCard report={profile.resumeReport} />
+                </div>
+              )}
             </div>
           </div>
           

@@ -2,6 +2,7 @@ import express from "express";
 import { verifyToken, requireRole } from "../middleware/authMiddleware";
 import {
   getStats,
+  getDataHealth,
   getAllUsers,
   getUserById,
   updateUserRole,
@@ -13,7 +14,10 @@ import {
   getAllApplicationsAdmin,
   searchUsers,
   approveJob,
-  rejectJob
+  rejectJob,
+  getPendingRecruiters,
+  approveRecruiter,
+  rejectRecruiter
 } from "../controllers/adminController";
 
 const router = express.Router();
@@ -23,6 +27,12 @@ router.use(verifyToken, requireRole("admin"));
 
 // ── Dashboard ────────────────────────────────────────────────
 router.get("/stats", getStats);
+router.get("/data-health", getDataHealth);
+
+// ── Recruiters ───────────────────────────────────────────────
+router.get("/recruiters/pending", getPendingRecruiters);
+router.patch("/recruiters/:id/approve", approveRecruiter);
+router.patch("/recruiters/:id/reject", rejectRecruiter);
 
 // ── Users ────────────────────────────────────────────────────
 router.get("/users/search", searchUsers);        // GET /api/admin/users/search?q=john

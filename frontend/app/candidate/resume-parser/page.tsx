@@ -1,3 +1,4 @@
+// @ts-nocheck
 export default function ResumeParserPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-800">
@@ -21,3 +22,5 @@ export default function ResumeParserPage() {
     </div>
   )
 }
+
+

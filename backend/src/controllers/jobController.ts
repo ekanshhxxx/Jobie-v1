@@ -1,18 +1,160 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { Op } from "sequelize";
+import jwt from "jsonwebtoken";
 import Job from "../models/Job";
+import Application from "../models/Application";
+import { AuthRequest } from "../middleware/authMiddleware";
 
-// Get all jobs — public view shows approved only
-export const getAllJobs = async (req: Request, res: Response) => {
+const JWT_SECRET = process.env.JWT_SECRET || "jobie_secret";
+
+type LifecycleStatus = "draft" | "published" | "closed";
+type ApprovalStatus = "approved" | "pending_review" | "rejected";
+
+const VALID_LIFECYCLE: LifecycleStatus[] = ["draft", "published", "closed"];
+const VALID_APPROVAL: ApprovalStatus[] = ["approved", "pending_review", "rejected"];
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean);
+      }
+    } catch {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function pickLifecycle(input: unknown, fallback: LifecycleStatus): LifecycleStatus {
+  if (typeof input === "string" && VALID_LIFECYCLE.includes(input as LifecycleStatus)) {
+    return input as LifecycleStatus;
+  }
+  return fallback;
+}
+
+function pickApproval(input: unknown, fallback: ApprovalStatus): ApprovalStatus {
+  if (typeof input === "string" && VALID_APPROVAL.includes(input as ApprovalStatus)) {
+    return input as ApprovalStatus;
+  }
+  return fallback;
+}
+
+function isJobPublic(job: any) {
+  return (job.lifecycleStatus || "published") === "published" && (job.approvalStatus || job.status || "approved") === "approved";
+}
+
+function optionalRequester(req: AuthRequest): { id: number; role: string } | null {
+  if (req.user) return req.user;
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   try {
-    const jobs = await Job.findAll({ where: { status: "approved" } });
-    res.status(200).json(jobs);
+    return jwt.verify(authHeader.split(" ")[1], JWT_SECRET) as { id: number; role: string };
+  } catch {
+    return null;
+  }
+}
+
+async function buildJobMetrics(jobIds: number[]) {
+  if (jobIds.length === 0) return new Map<number, { applicantCount: number; newApplicantCount: number; lastApplicationAt: string | null }>();
+
+  const applications = await Application.findAll({
+    where: { jobId: { [Op.in]: jobIds } },
+    raw: true,
+  });
+
+  const metrics = new Map<number, { applicantCount: number; newApplicantCount: number; lastApplicationAt: string | null }>();
+
+  applications.forEach((application: any) => {
+    const current = metrics.get(application.jobId) || {
+      applicantCount: 0,
+      newApplicantCount: 0,
+      lastApplicationAt: null,
+    };
+
+    current.applicantCount += 1;
+    if (application.status === "applied") current.newApplicantCount += 1;
+
+    const nextDate = application.createdAt ? new Date(application.createdAt).toISOString() : null;
+    if (!current.lastApplicationAt || (nextDate && new Date(nextDate).getTime() > new Date(current.lastApplicationAt).getTime())) {
+      current.lastApplicationAt = nextDate;
+    }
+
+    metrics.set(application.jobId, current);
+  });
+
+  return metrics;
+}
+
+function normalizeJob(job: any, metrics?: { applicantCount: number; newApplicantCount: number; lastApplicationAt: string | null }) {
+  const plain = typeof job.get === "function" ? job.get({ plain: true }) : job;
+  const requiredSkills = parseStringArray(plain.requiredSkills);
+  const techStack = parseStringArray(plain.techStack);
+  const lifecycleStatus = pickLifecycle(plain.lifecycleStatus, plain.status === "approved" ? "published" : "draft");
+  const approvalStatus = pickApproval(plain.approvalStatus, plain.status === "rejected" ? "rejected" : "approved");
+  const applicantCount = metrics?.applicantCount ?? plain.applicantCount ?? 0;
+  const newApplicantCount = metrics?.newApplicantCount ?? plain.newApplicantCount ?? 0;
+  const updatedAt = plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null;
+  const createdAt = plain.createdAt ? new Date(plain.createdAt).toISOString() : null;
+  const lastActivityAt = metrics?.lastApplicationAt && updatedAt
+    ? new Date(metrics.lastApplicationAt).getTime() > new Date(updatedAt).getTime()
+      ? metrics.lastApplicationAt
+      : updatedAt
+    : metrics?.lastApplicationAt || updatedAt || createdAt;
+
+  return {
+    id: plain.id,
+    title: plain.title,
+    company: plain.company,
+    location: plain.location || "",
+    salary: plain.salary || "",
+    description: plain.description || "",
+    requiredSkills,
+    techStack,
+    experienceLevel: plain.experienceLevel || "mid",
+    lifecycleStatus,
+    approvalStatus,
+    status: approvalStatus,
+    recruiterId: plain.recruiterId ?? null,
+    applicantCount,
+    newApplicantCount,
+    lastActivityAt,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function canManageJob(requester: { id: number; role: string } | undefined, job: any) {
+  if (!requester) return false;
+  return requester.role === "admin" || requester.id === Number(job.recruiterId);
+}
+
+// Get all jobs — public candidate view only shows published + approved roles
+export const getAllJobs = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobs = await Job.findAll();
+    const publicJobs = jobs.filter((job: any) => isJobPublic(job));
+    res.status(200).json(publicJobs.map((job: any) => normalizeJob(job)));
   } catch (error) {
     res.status(500).json({ message: "Error fetching jobs", error });
   }
 };
 
 // Get single job
-export const getJobById = async (req: Request, res: Response) => {
+export const getJobById = async (req: AuthRequest, res: Response) => {
   try {
     const job = await Job.findByPk(Number(req.params.id));
 
@@ -20,16 +162,54 @@ export const getJobById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    res.status(200).json(job);
+    const requester = optionalRequester(req);
+    if (!isJobPublic(job) && !canManageJob(requester ?? undefined, job)) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const metrics = await buildJobMetrics([Number((job as any).id)]);
+    res.status(200).json(normalizeJob(job, metrics.get(Number((job as any).id))));
   } catch (error) {
     res.status(500).json({ message: "Error fetching job", error });
   }
 };
 
 // Create job
-export const createJob = async (req: Request, res: Response) => {
+export const createJob = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, company, location, salary, description, requiredSkills, techStack, experienceLevel, recruiterId } = req.body;
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (!["recruiter", "admin"].includes(requester.role)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const {
+      title,
+      company,
+      location,
+      salary,
+      description,
+      requiredSkills,
+      techStack,
+      experienceLevel,
+      recruiterId,
+      lifecycleStatus,
+      approvalStatus,
+      status,
+      intent,
+    } = req.body;
+
+    const ownerId = requester.role === "admin" && recruiterId ? Number(recruiterId) : requester.id;
+    const nextLifecycle = pickLifecycle(
+      lifecycleStatus,
+      intent === "publish" || status === "approved" ? "published" : "draft"
+    );
+    const nextApproval = pickApproval(
+      approvalStatus,
+      status === "rejected" ? "rejected" : "approved"
+    );
 
     const job = await Job.create({
       title,
@@ -37,47 +217,91 @@ export const createJob = async (req: Request, res: Response) => {
       location,
       salary,
       description,
-      requiredSkills: requiredSkills || [],
-      techStack: techStack || [],
+      requiredSkills: parseStringArray(requiredSkills),
+      techStack: parseStringArray(techStack),
       experienceLevel: experienceLevel || "mid",
-      recruiterId: recruiterId || null
+      lifecycleStatus: nextLifecycle,
+      approvalStatus: nextApproval,
+      recruiterId: ownerId,
+      status: nextApproval,
     });
 
-    res.status(201).json(job);
+    res.status(201).json(normalizeJob(job));
   } catch (error) {
     res.status(500).json({ message: "Error creating job", error });
   }
 };
 
-export const updateJob = async (req: Request, res: Response) => {
+export const updateJob = async (req: AuthRequest, res: Response) => {
   try {
-    const jobId = Number(req.params.id);
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
+    const jobId = Number(req.params.id);
     const job = await Job.findByPk(jobId);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    await job.update(req.body);
+    if (!canManageJob(requester, job)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
-    res.status(200).json(job);
+    const payload: Record<string, unknown> = {};
+
+    if (req.body.title !== undefined) payload.title = req.body.title;
+    if (req.body.company !== undefined) payload.company = req.body.company;
+    if (req.body.location !== undefined) payload.location = req.body.location;
+    if (req.body.salary !== undefined) payload.salary = req.body.salary;
+    if (req.body.description !== undefined) payload.description = req.body.description;
+    if (req.body.experienceLevel !== undefined) payload.experienceLevel = req.body.experienceLevel;
+    if (req.body.requiredSkills !== undefined) payload.requiredSkills = parseStringArray(req.body.requiredSkills);
+    if (req.body.techStack !== undefined) payload.techStack = parseStringArray(req.body.techStack);
+    if (req.body.lifecycleStatus !== undefined) {
+      payload.lifecycleStatus = pickLifecycle(req.body.lifecycleStatus, (job as any).lifecycleStatus || "published");
+    } else if (req.body.intent === "publish") {
+      payload.lifecycleStatus = "published";
+    } else if (req.body.intent === "draft") {
+      payload.lifecycleStatus = "draft";
+    }
+    if (req.body.approvalStatus !== undefined || req.body.status !== undefined) {
+      const nextApproval = pickApproval(req.body.approvalStatus ?? req.body.status, (job as any).approvalStatus || "approved");
+      payload.approvalStatus = nextApproval;
+      payload.status = nextApproval;
+    }
+
+    await (job as any).update(payload);
+
+    const metrics = await buildJobMetrics([jobId]);
+    res.status(200).json(normalizeJob(job, metrics.get(jobId)));
   } catch (error) {
     res.status(500).json({ message: "Error updating job", error });
   }
 };
 
-export const deleteJob = async (req: Request, res: Response) => {
+export const deleteJob = async (req: AuthRequest, res: Response) => {
   try {
-    const jobId = Number(req.params.id);
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
+    const jobId = Number(req.params.id);
     const job = await Job.findByPk(jobId);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    await job.destroy();
+    if (!canManageJob(requester, job)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await Application.destroy({ where: { jobId } });
+    await (job as any).destroy();
 
     res.status(200).json({ message: "Job deleted successfully" });
   } catch (error) {
@@ -86,16 +310,44 @@ export const deleteJob = async (req: Request, res: Response) => {
 };
 
 // Get all jobs posted by a specific recruiter
-export const getRecruiterJobs = async (req: Request, res: Response) => {
+export const getRecruiterJobs = async (req: AuthRequest, res: Response) => {
   try {
-    const recruiterId = Number(req.query.recruiterId);
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
+    const recruiterId = Number(req.query.recruiterId || req.params.recruiterId || requester.id);
     if (!recruiterId) {
       return res.status(400).json({ message: "recruiterId query param is required" });
     }
 
-    const jobs = await Job.findAll({ where: { recruiterId } });
-    res.status(200).json(jobs);
+    if (requester.role !== "admin" && requester.id !== recruiterId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const where: Record<string, unknown> = { recruiterId };
+    if (req.query.lifecycleStatus) {
+      where.lifecycleStatus = pickLifecycle(req.query.lifecycleStatus, "published");
+    }
+    if (req.query.approvalStatus) {
+      where.approvalStatus = pickApproval(req.query.approvalStatus, "approved");
+    }
+
+    const jobs = await Job.findAll({
+      where,
+      order: [["updatedAt", "DESC"]],
+    });
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+    const filtered = search
+      ? jobs.filter((job: any) =>
+          `${job.title} ${job.company} ${job.location}`.toLowerCase().includes(search)
+        )
+      : jobs;
+
+    const metrics = await buildJobMetrics(filtered.map((job: any) => Number(job.id)));
+    res.status(200).json(filtered.map((job: any) => normalizeJob(job, metrics.get(Number(job.id)))));
   } catch (error) {
     res.status(500).json({ message: "Error fetching recruiter jobs", error });
   }

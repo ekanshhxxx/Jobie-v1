@@ -32,7 +32,7 @@ interface HistoryItem {
   summary: string;
   source: string;
   jobDescriptionSnippet: string;
-  analysisResult?: any;
+  analysisResult?: AtsResult | null;
 }
 
 // Score → label + colour helpers
@@ -584,7 +584,7 @@ export default function AtsCheckerPage() {
                       key={item.id}
                       onClick={() => {
                         setJobDescription(item.jobDescriptionSnippet);
-                        setResult(item.analysisResult);
+                        setResult(item.analysisResult ?? null);
                         setShowHistory(false);
                       }}
                       className="bg-white/[0.03] backdrop-blur-3xl border border-white/[0.06] rounded-[1.5rem] p-5 cursor-pointer hover:bg-white/[0.07] hover:border-white/15 transition-all group flex flex-col justify-between"

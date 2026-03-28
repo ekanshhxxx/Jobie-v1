@@ -1,9 +1,12 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
-import { parseResume, analyseResumeSkills } from "../services/resumeService";
+import fs from "fs";
+import path from "path";
+import { parseResume, analyseResumeSkills, generateResumeReport } from "../services/resumeService";
 import Profile from "../models/Profile";
 import Job from "../models/Job";
+import { getProfileWithFallback, saveProfileDual } from "../services/dbFallbackService";
 
 // Helper: extract text from a PDF buffer using pdf-parse v2
 async function extractTextFromPDF(buffer: Buffer): Promise<{ text: string; pages: number }> {
@@ -11,6 +14,16 @@ async function extractTextFromPDF(buffer: Buffer): Promise<{ text: string; pages
   const result = await parser.getText();
   await parser.destroy();
   return { text: result.text, pages: result.total };
+}
+
+function persistResumeFile(file: Express.Multer.File): string {
+  const uploadRoot = path.resolve(__dirname, "../../uploads/resumes");
+  fs.mkdirSync(uploadRoot, { recursive: true });
+  const safe = (file.originalname || "resume.pdf").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const filename = `${Date.now()}-${safe}`;
+  const fullPath = path.join(uploadRoot, filename);
+  fs.writeFileSync(fullPath, file.buffer);
+  return `/uploads/resumes/${filename}`;
 }
 
 // ─── Multer: in-memory only (no files on disk) ───────────────────────────────
@@ -29,7 +42,6 @@ const upload = multer({
 export const uploadMiddleware = upload.single("resume");
 
 // ─── POST /api/resume/parse ──────────────────────────────────────────────────
-// Upload a PDF → extract text → AI parse → return structured data
 export const parseResumeFromPDF = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
@@ -60,7 +72,6 @@ export const parseResumeFromPDF = async (req: Request, res: Response) => {
 };
 
 // ─── POST /api/resume/parse-text ─────────────────────────────────────────────
-// Paste raw text → AI parse → return structured data (no file upload needed)
 export const parseResumeFromText = async (req: Request, res: Response) => {
   try {
     const { text } = req.body;
@@ -77,14 +88,12 @@ export const parseResumeFromText = async (req: Request, res: Response) => {
 };
 
 // ─── POST /api/resume/parse-and-save/:userId ─────────────────────────────────
-// Upload PDF → parse → auto-fill profile fields → save to DB
 export const parseAndSaveToProfile = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.userId);
-    const profile = await Profile.findOne({ where: { userId } });
+    const { data: profile } = await getProfileWithFallback(userId);
     if (!profile) return res.status(404).json({ message: "Profile not found. Create profile first." });
 
-    // Accept either PDF upload or text body
     let text: string;
     if (req.file) {
       const pdfData = await extractTextFromPDF(req.file.buffer);
@@ -101,7 +110,6 @@ export const parseAndSaveToProfile = async (req: Request, res: Response) => {
 
     const parsed = await parseResume(text);
 
-    // Smart merge: keep existing data, enrich with parsed
     const currentSkills: string[] = (profile as any).skills || [];
     const normalize = (s: string) => s.toLowerCase().trim();
     const currentNorm = currentSkills.map(normalize);
@@ -127,45 +135,39 @@ export const parseAndSaveToProfile = async (req: Request, res: Response) => {
       if (!existingNames.includes(normalize(p.name))) mergedProjects.push(p);
     });
 
-    // Build updated profile data
     const updateData: any = {
       skills: mergedSkills,
       experience: mergedExperience,
       education: mergedEducation,
       projects: mergedProjects,
     };
+    if (req.file) {
+      updateData.resumeUrl = persistResumeFile(req.file);
+    }
     if (!((profile as any).bio) && parsed.summary) updateData.bio = parsed.summary;
 
-    // Recompute completeness
-    const merged = { ...(profile as any).dataValues, ...updateData };
-    let completeness = 0;
-    if (merged.bio) completeness += 10;
-    if (merged.headline) completeness += 5;
-    if (merged.location) completeness += 5;
-    if (merged.phone) completeness += 5;
-    if (merged.website) completeness += 5;
-    if (merged.linkedin) completeness += 5;
-    if (merged.avatarUrl) completeness += 5;
-    if (merged.resumeUrl) completeness += 5;
-    if (merged.skills?.length > 0) completeness += 20;
-    if (merged.experience?.length > 0) completeness += 20;
-    if (merged.education?.length > 0) completeness += 15;
-    if (merged.projects?.length > 0) completeness += 20;
-    if (merged.githubUsername) completeness += 10;
-    if (merged.githubVerifiedSkills?.length > 0) completeness += 5;
-    updateData.profileCompleteness = completeness;
+    let resumeReport: any = null;
+    try {
+      resumeReport = await generateResumeReport(parsed);
+      updateData.resumeReport = resumeReport;
+    } catch (e) {
+      console.error("Resume report generation failed (non-fatal):", e);
+    }
 
-    await profile.update(updateData);
+    const { mysqlResult, mongoResult } = await saveProfileDual(userId, updateData);
+    const finalProfile = mysqlResult || mongoResult;
 
     res.status(200).json({
       message: "Resume parsed and profile updated",
       parsed,
+      resumeReport,
       updatedProfile: {
         skills: mergedSkills,
         experience: mergedExperience,
         education: mergedEducation,
         projects: mergedProjects,
-        profileCompleteness: completeness,
+        resumeUrl: (finalProfile as any).resumeUrl || (profile as any).resumeUrl || null,
+        profileCompleteness: (finalProfile as any).profileCompleteness,
       },
       suggestedRoles: parsed.suggestedRoles,
       overallSummary: parsed.overallSummary,
@@ -176,14 +178,12 @@ export const parseAndSaveToProfile = async (req: Request, res: Response) => {
 };
 
 // ─── POST /api/resume/match/:jobId ──────────────────────────────────────────
-// Upload PDF → parse → compare skills against a specific job (no save)
 export const matchResumeToJob = async (req: Request, res: Response) => {
   try {
     const jobId = Number(req.params.jobId);
     const job = await Job.findByPk(jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
 
-    // Accept PDF or text
     let text: string;
     if (req.file) {
       const pdfData = await extractTextFromPDF(req.file.buffer);
@@ -199,26 +199,29 @@ export const matchResumeToJob = async (req: Request, res: Response) => {
     }
 
     const parsed = await parseResume(text);
-
-    const requiredSkills: string[] = (job as any).requiredSkills || [];
-    const techStack: string[] = (job as any).techStack || [];
-    const allRequired = [...requiredSkills, ...techStack];
-
+    const allRequired = [...((job as any).requiredSkills || []), ...((job as any).techStack || [])];
     const analysis = analyseResumeSkills(parsed, allRequired);
 
     res.status(200).json({
-      jobId,
-      jobTitle: (job as any).title,
-      candidateName: parsed.name,
-      ...analysis,
-      suggestedRoles: parsed.suggestedRoles,
-      message: analysis.matchPercentage >= 80
-        ? "Excellent fit! This candidate matches most requirements."
-        : analysis.matchPercentage >= 50
-          ? "Moderate fit — some skills are missing but transferable."
-          : "Low match — significant skill gaps for this role."
+      jobId, ...analysis, suggestedRoles: parsed.suggestedRoles,
+      message: analysis.matchPercentage >= 80 ? "Excellent fit!" : "Incomplete match."
     });
   } catch (error: any) {
-    res.status(500).json({ message: "Error matching resume to job", error: error.message });
+    res.status(500).json({ message: "Error matching resume", error: error.message });
+  }
+};
+
+// ─── GET /api/resume/report/:userId ─────────────────────────────────────────
+export const getResumeReport = async (req: Request, res: Response) => {
+  try {
+    const userId = Number(req.params.userId);
+    const { data: profile } = await getProfileWithFallback(userId);
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    const report = (profile as any).resumeReport;
+    if (!report) return res.status(404).json({ message: "No report found. Upload resume first." });
+    res.status(200).json({ userId, resumeReport: report });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching resume report", error: error.message });
   }
 };

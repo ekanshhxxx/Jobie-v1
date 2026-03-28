@@ -17,6 +17,7 @@ export default function Navbar() {
   const profileHref = user
     ? (user.role === 'candidate' ? `/profile/${user.id}` : `/profile/${user.id}`)
     : '/login';
+  const dashboardHref = user?.role === 'candidate' ? '/candidate/dashboard' : '/recruiter/dashboard';
 
   const isActivePath = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
 
@@ -61,7 +62,7 @@ export default function Navbar() {
                 </Link>
               ) : (
                 <>
-                  <Link href="/dashboard" className={`transition ${isActivePath('/dashboard') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Dashboard</Link>
+                  <Link href={dashboardHref} className={`transition ${isActivePath(dashboardHref) ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Dashboard</Link>
                   <Link href="/jobs" className={`transition ${isActivePath('/jobs') ? 'text-[#2563EB] dark:text-white' : 'hover:text-[#2563EB] dark:hover:text-white'}`}>Jobs</Link>
                   {user.role === 'candidate' && (
                     <>

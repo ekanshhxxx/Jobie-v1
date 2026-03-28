@@ -1,6 +1,22 @@
 const BASE_URL = 'http://localhost:5000';
 export const API_BASE_URL = BASE_URL;
 
+export class ApiError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('token');
@@ -33,8 +49,15 @@ async function request(method: string, path: string, body?: unknown) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Request failed');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const errorMsg = data.message || data.error || 'Server error or Database disconnected';
+    // Only log unexpected server-side failures; 4xx are often expected UX flows.
+    if (res.status >= 500) {
+      console.error(`API Error (${res.status}): ${errorMsg}`);
+    }
+    throw new ApiError(errorMsg, res.status, data);
+  }
   return data;
 }
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { api, setAuth } from '../lib/api';
 import { useToast } from '../components/ToastProvider';
+import type { FirebaseError } from 'firebase/app';
 import {
   signInWithPopup,
   GithubAuthProvider,
@@ -62,8 +63,8 @@ export default function RegisterPage() {
     const email = fbErr?.customData?.email;
     const pendingCredential =
       pendingProvider === 'github'
-        ? GithubAuthProvider.credentialFromError(err as Error)
-        : GoogleAuthProvider.credentialFromError(err as Error);
+        ? GithubAuthProvider.credentialFromError(err as FirebaseError)
+        : GoogleAuthProvider.credentialFromError(err as FirebaseError);
 
     if (!email || !pendingCredential) {
       const msg = 'This email is already linked to another sign-in method. Please sign in with that method first.';
@@ -106,7 +107,7 @@ export default function RegisterPage() {
       return;
     }
     if (u.role !== 'candidate') {
-      router.push('/dashboard');
+      router.push('/recruiter/dashboard');
       return;
     }
     try {
@@ -116,7 +117,7 @@ export default function RegisterPage() {
       if (!profile || completeness < 40) {
         router.push('/onboarding');
       } else {
-        router.push('/dashboard');
+        router.push('/candidate/dashboard');
       }
     } catch {
       router.push('/onboarding');
@@ -199,7 +200,7 @@ export default function RegisterPage() {
         message: 'Your account is ready. Redirecting…',
       });
 
-      router.push('/dashboard');
+      await routeAfterAuth(data.user);
     } catch (err: unknown) {
       if (await maybeHandleAccountLinking(err, 'google')) return;
       const msg = err instanceof Error ? err.message : 'Google signup failed';
@@ -273,7 +274,7 @@ export default function RegisterPage() {
         message: 'Your account is ready. Redirecting…',
       });
 
-      router.push('/dashboard');
+      await routeAfterAuth(data.user);
     } catch (err: unknown) {
       if (await maybeHandleAccountLinking(err, 'github')) return;
       const msg = err instanceof Error ? err.message : 'GitHub signup failed';

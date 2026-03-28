@@ -12,10 +12,29 @@ type ProfileHeaderProps = {
   editHref?: string;
 };
 
+function normalizeExternalUrl(raw?: string | null): string {
+  if (!raw) return '';
+  const value = raw.trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://${value}`;
+}
+
+function readableUrl(raw?: string | null): string {
+  const normalized = normalizeExternalUrl(raw);
+  if (!normalized) return '';
+  return normalized.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+}
+
 export default function ProfileHeader({ user, profile, editHref }: ProfileHeaderProps) {
   const avatarSrc = profile.avatarUrl
     ? (profile.avatarUrl.startsWith('http') ? profile.avatarUrl : `${API_BASE_URL}${profile.avatarUrl}`)
     : '';
+  const websiteUrl = normalizeExternalUrl(profile.website);
+  const linkedinUrl = normalizeExternalUrl(profile.linkedin);
+  const websiteLabel = readableUrl(profile.website);
+  const linkedinLabel = readableUrl(profile.linkedin);
+
   return (
     <div className="relative bg-white/60 dark:bg-white/10 backdrop-blur-xl rounded-2xl p-8 shadow-[0_12px_30px_rgba(0,0,0,0.08)] border border-white/30">
       <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 dark:from-blue-900/50 dark:via-purple-900/50 dark:to-pink-900/50 rounded-t-2xl"></div>
@@ -56,16 +75,16 @@ export default function ProfileHeader({ user, profile, editHref }: ProfileHeader
               <Mail size={14} />
               <a href={`mailto:${user.email}`} className="hover:text-blue-600 dark:hover:text-blue-400">{user.email}</a>
             </div>
-            {profile.website && (
+            {websiteUrl && (
               <div className="flex items-center gap-2">
                 <LinkIcon size={14} />
-                <a href={profile.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400">{profile.website}</a>
+                <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 break-all">{websiteLabel}</a>
               </div>
             )}
-            {profile.linkedin && (
+            {linkedinUrl && (
               <div className="flex items-center gap-2">
                 <LinkIcon size={14} />
-                <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400">LinkedIn</a>
+                <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 break-all">{linkedinLabel}</a>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -230,6 +230,7 @@ const COMMANDS: Record<string, (args: string[], ctx: { stats: Stats | null; user
     '  approve <id>        — approve job by ID',
     '  reject <id>         — reject job by ID',
     '  deljob <id>         — delete job by ID',
+    '  verify <email>      — approve recruiter profile',
     '─── SYSTEM ─────────────────────────────────────────',
     '  version             — build info',
     '  clear               — clear terminal log',
@@ -303,6 +304,7 @@ export default function AdminPage() {
   const [allJobs, setAllJobs] = useState<AdminJob[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [applications, setApplications] = useState<AdminApp[]>([]);
+  const [pendingRecruiters, setPendingRecruiters] = useState<any[]>([]);
 
   const [cmdLog, setCmdLog] = useState<LogEntry[]>([
     { text: `[${ts()}] JOBIE ADMIN TERMINAL v2.0.0 — SYSTEM READY`, type: 'ok', cat: 'system' },
@@ -315,7 +317,8 @@ export default function AdminPage() {
   const toastIdRef = useRef(0);
   const [actLogTab, setActLogTab] = useState<'all' | 'user' | 'job' | 'app' | 'system' | 'errors'>('all');
 
-  const [tab, setTab] = useState<'analytics' | 'queue' | 'alljobs' | 'users' | 'apps'>('analytics');
+  const [tab, setTab] = useState<'analytics' | 'queue' | 'alljobs' | 'users' | 'apps' | 'recruiters'>('analytics');
+  const [selectedRecruiter, setSelectedRecruiter] = useState<any | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [userRole, setUserRole] = useState('');
   const [appStatus, setAppStatus] = useState('');
@@ -355,14 +358,16 @@ export default function AdminPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [statsData, pendingData, allJobsData, usersData, appsData] = await Promise.all([
+      const [statsData, pendingData, allJobsData, usersData, appsData, pendingRecsData] = await Promise.all([
         api.get('/api/admin/stats'),
         api.get('/api/admin/jobs?status=pending'),
         api.get('/api/admin/jobs'),
         api.get('/api/admin/users'),
         api.get('/api/admin/applications'),
+        api.get('/api/admin/recruiters/pending'),
       ]);
       setStats(statsData);
+      setPendingRecruiters(Array.isArray(pendingRecsData) ? pendingRecsData : []);
       setPendingJobs(Array.isArray(pendingData) ? pendingData : []);
       setAllJobs(Array.isArray(allJobsData) ? allJobsData : []);
       setUsers(Array.isArray(usersData) ? usersData : []);
@@ -462,6 +467,32 @@ export default function AdminPage() {
     }
   };
 
+  const approveRecruiter = async (user: any) => {
+    try {
+      await api.patch(`/api/admin/recruiters/${user.id}/approve`);
+      log(`RECRUITER #${user.id} "${user.name}" → VERIFIED`, 'ok', 'user');
+      toast(`[VERIFIED] ${user.name}`, 'ok');
+      setSelectedRecruiter(null);
+      await loadData();
+    } catch (e) {
+      log(`RECRUITER #${user.id} VERIFY FAILED — ${e instanceof Error ? e.message : 'err'}`, 'err', 'user');
+      toast(`VERIFY FAILED ${user.name}`, 'err');
+    }
+  };
+
+  const rejectRecruiter = async (user: any) => {
+    try {
+      await api.patch(`/api/admin/recruiters/${user.id}/reject`);
+      log(`RECRUITER #${user.id} "${user.name}" → REJECTED`, 'ok', 'user');
+      toast(`[REJECTED] ${user.name}`, 'warn');
+      setSelectedRecruiter(null);
+      await loadData();
+    } catch {
+      log(`RECRUITER #${user.id} REJECT FAILED`, 'err', 'user');
+      toast(`REJECT FAILED ${user.name}`, 'err');
+    }
+  };
+
   // ─── Terminal command handler ────────────────────────────────────────────
   const runCmd = useCallback(async (raw: string) => {
     const trimmed = raw.trim();
@@ -535,6 +566,14 @@ export default function AdminPage() {
       const j = allJobs.find(x => x.id === id);
       if (!j) { addErr(`Job #${id} not found`); return; }
       await deleteJob(j); addOut([`DELETED: job #${id} "${j.title}"`]); return;
+    }
+    if (cmd === 'verify') {
+      const q = args.join(' ').toLowerCase();
+      if (!q) { addErr('Usage: verify <name|email>'); return; }
+      const u = users.find(x => x.name.toLowerCase().includes(q) || x.email.toLowerCase().includes(q));
+      if (!u) { addErr(`No user found matching "${q}"`); return; }
+      if (u.role !== 'recruiter') { addErr(`User "${u.name}" is not a recruiter`); return; }
+      await approveRecruiter(u); addOut([`VERIFIED: recruiter #${u.id} ${u.name}`]); return;
     }
 
     const handler = COMMANDS[cmd];
@@ -708,6 +747,7 @@ export default function AdminPage() {
             ['alljobs',   'ALL JOBS'],
             ['users',     `USERS [${users.length}]`],
             ['apps',      `APPLICATIONS [${applications.length}]`],
+            ['recruiters',`REC QUEUE [${pendingRecruiters.length}]`],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               fontFamily: FONT, fontSize: '12px', padding: '8px 20px', cursor: 'pointer',
@@ -723,6 +763,24 @@ export default function AdminPage() {
 
         {tab === 'analytics' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {pendingRecruiters.length > 0 && (
+              <div 
+                onClick={() => setTab('recruiters')}
+                style={{ 
+                  backgroundColor: `${T.amber}22`, border: `1px solid ${T.amber}`, padding: '12px 20px', 
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                  animation: 'pulse-glow 2s infinite', textShadow: T.aGlow
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                   <span style={{ color: T.amber, fontSize: '16px' }}>⚠️</span>
+                   <span style={{ color: T.amber, fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em' }}>
+                     [SYSTEM ALERT] {pendingRecruiters.length} RECRUITER{pendingRecruiters.length > 1 ? 'S' : ''} AWAITING VERIFICATION
+                   </span>
+                </div>
+                <span style={{ color: T.amber, fontSize: '10px', opacity: 0.8 }}>CLICK TO OPEN QUEUE →</span>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <ChartPane title="Applications Over Time" T={T}>
                 <ResponsiveContainer width="100%" height={200}>
@@ -948,38 +1006,29 @@ export default function AdminPage() {
           </Pane>
         )}
 
-        {tab === 'apps' && (
-          <Pane T={T} title={`Application Log — ${filteredApps.length} entries`}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ color: T.muted, fontSize: '11px' }}>STATUS:</span>
-              {(['', 'applied', 'accepted', 'rejected', 'hired'] as const).map(s => (
-                <button key={s} onClick={() => setAppStatus(s)} style={{
-                  border: `1px solid ${appStatus === s ? T.green : T.muted}`,
-                  color: appStatus === s ? T.green : T.muted,
-                  backgroundColor: 'transparent', fontFamily: FONT, fontSize: '11px', padding: '2px 8px',
-                  cursor: 'pointer', textShadow: appStatus === s ? T.gGlow : 'none',
-                }}>
-                  [{s.toUpperCase() || 'ALL'}]
-                </button>
-              ))}
-            </div>
+        {tab === 'recruiters' && (
+          <Pane T={T} title={`Recruiter Approval Queue — ${pendingRecruiters.length} pending`}>
             {loading ? (
               <div style={{ color: T.muted, textAlign: 'center', padding: '30px' }}>LOADING… <span className="term-blink">█</span></div>
-            ) : filteredApps.length === 0 ? (
-              <div style={{ color: T.muted, textAlign: 'center', padding: '20px' }}>{'// NO RECORDS FOUND'}</div>
+            ) : pendingRecruiters.length === 0 ? (
+              <div style={{ color: T.muted, padding: '24px', textAlign: 'center' }}>{'// NO PENDING RECRUITERS — QUEUE EMPTY [OK]'}</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead><TRow T={T} head cells={['#', 'Candidate', 'Job', 'Company', 'Status', 'Date']} /></thead>
+                  <thead><TRow T={T} head cells={['#', 'Name', 'Email', 'Company', 'Website', 'Joined', 'Actions']} /></thead>
                   <tbody>
-                    {filteredApps.map(app => (
-                      <TRow T={T} key={app.id} cells={[
-                        `#${app.id}`,
-                        app.User ? `${app.User.name}` : `uid:?`,
-                        app.Job?.title ?? '—',
-                        app.Job?.company ?? '—',
-                        <Badge T={T} key="s" status={app.status} />,
-                        fmt(app.createdAt),
+                    {pendingRecruiters.map(user => (
+                      <TRow T={T} key={user.id} cells={[
+                        `#${user.id}`,
+                        user.name,
+                        user.email,
+                        user.profile?.companyName ?? '—',
+                        user.profile?.website ? <a href={user.profile.website} target="_blank" rel="noreferrer" style={{ color: T.cyan }}>{user.profile.website.replace(/^https?:\/\//, '')}</a> : '—',
+                        fmt(user.createdAt),
+                        <div key="a" style={{ display: 'flex', gap: '6px' }}>
+                          <Btn T={T} label="[REVIEW]" onClick={() => setSelectedRecruiter(user)} color={T.cyan} glow={T.cGlow} />
+                          <Btn T={T} label="[VERIFY]" onClick={() => approveRecruiter(user)} color={T.green} glow={T.gGlow} />
+                        </div>,
                       ]} />
                     ))}
                   </tbody>
@@ -1059,7 +1108,84 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {selectedRecruiter && (
+          <div style={{ 
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px'
+          }}>
+            <div style={{ 
+              width: '100%', maxWidth: '600px', backgroundColor: T.bg, border: `1px solid ${T.border}`,
+              padding: '0', animation: 'modal-pop 0.2s ease-out'
+            }}>
+              <div style={{ backgroundColor: T.muted, padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: T.green, fontSize: '11px', fontWeight: 600 }}>RECRUITER_VERIFICATION_PROTOCOL :: #{selectedRecruiter.id}</span>
+                <button onClick={() => setSelectedRecruiter(null)} style={{ background: 'none', border: 'none', color: T.red, cursor: 'pointer', fontSize: '16px' }}>×</button>
+              </div>
+              
+              <div style={{ padding: '30px' }}>
+                <div style={{ display: 'flex', gap: '24px', alignItems: 'start', marginBottom: '30px' }}>
+                  <div style={{ 
+                    width: '80px', height: '80px', border: `1px solid ${T.border}`, backgroundColor: T.bg2,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px'
+                  }}>
+                    {selectedRecruiter.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '24px', color: T.green, textShadow: T.gGlow, margin: 0 }}>{selectedRecruiter.name}</h2>
+                    <div style={{ color: T.muted, fontSize: '12px', marginTop: '4px' }}>{selectedRecruiter.email}</div>
+                    <div style={{ marginTop: '12px' }}>
+                       <Badge T={T} status="recruiter" />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                  <div>
+                    <div style={{ color: T.muted, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>Company</div>
+                    <div style={{ color: T.text, fontSize: '14px' }}>{selectedRecruiter.profile?.companyName || 'Unknown Corp'}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: T.muted, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>Location</div>
+                    <div style={{ color: T.text, fontSize: '14px' }}>{selectedRecruiter.profile?.location || 'Remote/Unknown'}</div>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ color: T.muted, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>Website</div>
+                    <div style={{ color: T.cyan, fontSize: '14px' }}>{selectedRecruiter.profile?.website || '—'}</div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '40px' }}>
+                  <div style={{ color: T.muted, fontSize: '10px', textTransform: 'uppercase', marginBottom: '8px' }}>Security Bio / Verification Note</div>
+                  <div style={{ 
+                    color: T.text, fontSize: '12px', lineHeight: '1.6', opacity: 0.8,
+                    padding: '12px', backgroundColor: T.bg2, borderLeft: `2px solid ${T.green}`
+                  }}>
+                    {selectedRecruiter.profile?.bio || 'No verification note provided. Recommended to review company website before approval.'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <Btn T={T} label="[DECLINE_CREDENTIALS]" onClick={() => rejectRecruiter(selectedRecruiter)} color={T.red} glow={T.rGlow} />
+                  <Btn T={T} label="[PROCEED_WITH_VERIFICATION]" onClick={() => approveRecruiter(selectedRecruiter)} color={T.green} glow={T.gGlow} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
+
+      <style jsx global>{`
+        @keyframes pulse-glow {
+          0% { box-shadow: 0 0 0px ${T.amber}00; }
+          50% { box-shadow: 0 0 15px ${T.amber}44; }
+          100% { box-shadow: 0 0 0px ${T.amber}00; }
+        }
+        @keyframes modal-pop {
+          0% { transform: scale(0.95); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

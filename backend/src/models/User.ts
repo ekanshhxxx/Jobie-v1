@@ -16,7 +16,10 @@ const User = sequelize.define("User", {
   email: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true
+    unique: "ux_users_email",
+    set(value: string) {
+      this.setDataValue("email", typeof value === "string" ? value.trim().toLowerCase() : value);
+    }
   },
 
   password: {
@@ -32,13 +35,29 @@ const User = sequelize.define("User", {
   firebaseUid: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true
+    unique: "ux_users_firebase_uid",
+    set(value: string | null) {
+      if (typeof value !== "string") {
+        this.setDataValue("firebaseUid", value);
+        return;
+      }
+      const normalized = value.trim();
+      this.setDataValue("firebaseUid", normalized.length ? normalized : null);
+    }
   },
 
   githubUid: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true
+    unique: "ux_users_github_uid",
+    set(value: string | null) {
+      if (typeof value !== "string") {
+        this.setDataValue("githubUid", value);
+        return;
+      }
+      const normalized = value.trim();
+      this.setDataValue("githubUid", normalized.length ? normalized : null);
+    }
   },
 
   banned: {

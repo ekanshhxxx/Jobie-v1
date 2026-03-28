@@ -11,7 +11,7 @@ const Profile = sequelize.define("Profile", {
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    unique: true
+    unique: "ux_profiles_user_id"
   },
 
   bio: {
@@ -59,6 +59,16 @@ const Profile = sequelize.define("Profile", {
     allowNull: true
   },
 
+  companyName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  companyLogo: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
   resumeUrl: {
     type: DataTypes.STRING,
     allowNull: true
@@ -92,6 +102,18 @@ const Profile = sequelize.define("Profile", {
   githubVerifiedSkills: {
     type: DataTypes.JSON,
     defaultValue: []
+  },
+
+  githubDeepScan: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
+  },
+
+  resumeReport: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
   },
 
   profileCompleteness: {

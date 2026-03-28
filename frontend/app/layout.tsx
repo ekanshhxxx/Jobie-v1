@@ -1,49 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Lora, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import type { CSSProperties } from "react";
 import "./globals.css";
+import "./reference-ui.css";
 import Navbar from "./components/CardNav";
 import ThemeProvider from "./components/ThemeProvider";
 import ToastProvider from "./components/ToastProvider";
+import ChatbotWidget from "./components/ChatbotWidget";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['400', '600', '700', '900'],
-  style: ['normal', 'italic'],
-  variable: '--font-playfair',
-  display: 'swap',
-});
-
-const lora = Lora({
-  subsets: ['latin'],
-  weight: ['400', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-lora',
-  display: 'swap',
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-});
+const offlineFontVariables: CSSProperties = {
+  ["--font-geist-sans" as string]: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+  ["--font-geist-mono" as string]: "'Consolas', 'Courier New', monospace",
+  ["--font-playfair" as string]: "'Times New Roman', Georgia, serif",
+  ["--font-lora" as string]: "'Times New Roman', Georgia, serif",
+  ["--font-jetbrains" as string]: "'Consolas', 'Courier New', monospace",
+  ["--font-space-grotesk" as string]: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+};
 
 export const metadata: Metadata = {
   title: "Jobie — AI-Powered Job Matching",
@@ -58,12 +29,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${lora.variable} ${jetbrains.variable} ${spaceGrotesk.variable} antialiased`}
+        className="antialiased"
+        style={offlineFontVariables}
       >
         <ThemeProvider>
           <ToastProvider>
             <Navbar />
             {children}
+            <ChatbotWidget />
           </ToastProvider>
         </ThemeProvider>
       </body>

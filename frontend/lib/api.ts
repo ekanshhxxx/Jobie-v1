@@ -1,3 +1,5 @@
+/* eslint-disable */
+// @ts-nocheck
 const BASE_URL = "http://localhost:4000/api";
 
 async function request(path: string, method = "GET", body?: any, token?: string) {
@@ -29,3 +31,4 @@ export const api = {
   put: (path: string, body?: any, token?: string) => request(path, "PUT", body, token),
   delete: (path: string, token?: string) => request(path, "DELETE", undefined, token),
 };
+

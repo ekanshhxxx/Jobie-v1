@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { api, setAuth } from '../lib/api';
+import { api, isApiError, setAuth } from '../lib/api';
 import { useToast } from '../components/ToastProvider';
+import type { FirebaseError } from 'firebase/app';
 import {
   signInWithPopup,
   GithubAuthProvider,
@@ -28,6 +29,10 @@ export default function LoginPage() {
     provider: 'google' | 'github';
     email?: string;
     methods?: string[];
+  } | null>(null);
+  const [accountConflict, setAccountConflict] = useState<{
+    message: string;
+    accounts: Array<{ id?: number; email?: string; name?: string; match?: string }>;
   } | null>(null);
 
   const fetchGithubInfo = async (accessToken?: string) => {
@@ -62,8 +67,8 @@ export default function LoginPage() {
     const email = fbErr?.customData?.email;
     const pendingCredential =
       pendingProvider === 'github'
-        ? GithubAuthProvider.credentialFromError(err as Error)
-        : GoogleAuthProvider.credentialFromError(err as Error);
+        ? GithubAuthProvider.credentialFromError(err as FirebaseError)
+        : GoogleAuthProvider.credentialFromError(err as FirebaseError);
 
     if (!email || !pendingCredential) {
       const msg = 'This email is already linked to another sign-in method. Please sign in with that method first.';
@@ -105,8 +110,17 @@ export default function LoginPage() {
       router.push('/admin');
       return;
     }
-    if (u.role !== 'candidate') {
-      router.push('/dashboard');
+    if (u.role === 'recruiter') {
+      try {
+        const { profile } = await api.get(`/api/profile/${u.id}`);
+        if (!profile || !profile.companyName || profile.headline === "PENDING_ADMIN_APPROVAL") {
+          router.push('/recruiter-setup');
+        } else {
+          router.push('/recruiter/dashboard');
+        }
+      } catch {
+        router.push('/recruiter-setup');
+      }
       return;
     }
     try {
@@ -116,11 +130,33 @@ export default function LoginPage() {
       if (!profile || completeness < 40) {
         router.push('/onboarding');
       } else {
-        router.push('/dashboard');
+        router.push('/candidate/dashboard');
       }
     } catch {
       router.push('/onboarding');
     }
+  };
+
+  const maybeHandleBackendConflict = (err: unknown) => {
+    if (!isApiError(err) || err.status !== 409) return false;
+    const payload = (typeof err.payload === 'object' && err.payload) ? err.payload as {
+      code?: string;
+      accounts?: Array<{ id?: number; email?: string; name?: string; match?: string }>;
+      account?: { id?: number; email?: string; name?: string; match?: string };
+      message?: string;
+    } : {};
+
+    if (payload.code === 'MULTIPLE_MATCHING_ACCOUNTS' || payload.code === 'FIREBASE_UID_CONFLICT' || payload.code === 'GITHUB_UID_CONFLICT') {
+      const accounts = payload.accounts?.length
+        ? payload.accounts
+        : (payload.account ? [payload.account] : []);
+      const msg = payload.message || err.message || 'Multiple linked accounts found.';
+      setAccountConflict({ message: msg, accounts });
+      setError(msg);
+      toast({ type: 'error', title: 'Choose account', message: msg });
+      return true;
+    }
+    return false;
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -201,6 +237,7 @@ export default function LoginPage() {
       await routeAfterAuth(data.user);
     } catch (err: unknown) {
       if (await maybeHandleAccountLinking(err, 'google')) return;
+      if (maybeHandleBackendConflict(err)) return;
       const msg = err instanceof Error ? err.message : 'Google login failed';
       setError(msg);
       toast({ type: 'error', title: 'Google sign-in failed', message: msg });
@@ -275,6 +312,7 @@ export default function LoginPage() {
       await routeAfterAuth(data.user);
     } catch (err: unknown) {
       if (await maybeHandleAccountLinking(err, 'github')) return;
+      if (maybeHandleBackendConflict(err)) return;
       const msg = err instanceof Error ? err.message : 'GitHub login failed';
       setError(msg);
       toast({ type: 'error', title: 'GitHub sign-in failed', message: msg });
@@ -527,6 +565,55 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {accountConflict && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#0f1525] border border-gray-200 dark:border-white/10 shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Choose account to continue</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{accountConflict.message}</p>
+
+            <div className="mt-4 space-y-2">
+              {(accountConflict.accounts.length > 0 ? accountConflict.accounts : [{}]).map((acc, idx) => (
+                <button
+                  key={`${acc.id ?? 'unknown'}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    if (acc.email) setForm((f) => ({ ...f, email: acc.email || f.email }));
+                    setAccountConflict(null);
+                    toast({
+                      type: 'info',
+                      title: 'Account selected',
+                      message: acc.email
+                        ? `Continue sign-in with ${acc.email} to complete linking.`
+                        : 'Please continue with your linked account credentials.',
+                    });
+                  }}
+                  className="w-full text-left rounded-xl border border-gray-200 dark:border-white/10 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+                >
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {acc.name || 'Account'}
+                    {typeof acc.id === 'number' ? ` (ID: ${acc.id})` : ''}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {acc.email || 'Email not available'}
+                    {acc.match ? ` • matched by ${acc.match}` : ''}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAccountConflict(null)}
+                className="px-4 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

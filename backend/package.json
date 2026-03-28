@@ -5,7 +5,9 @@
   "scripts": {
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --watch --runInBand",
-    "dev": "ts-node-dev src/server.ts"
+    "dev": "ts-node-dev src/server.ts",
+    "db:repair-indexes": "node src/scripts/repair-indexes.js --execute",
+    "db:repair-indexes:dry": "node src/scripts/repair-indexes.js"
   },
   "jest": {
     "preset": "ts-jest",
@@ -20,6 +22,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@stream-io/node-sdk": "^0.7.49",
+    "@types/nodemailer": "^7.0.11",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -30,8 +34,10 @@
     "groq-sdk": "^1.1.1",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.12.0",
+    "mongoose": "^8.19.4",
     "multer": "^2.1.1",
     "mysql2": "^3.18.2",
+    "nodemailer": "^8.0.3",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.17.2",
     "sequelize": "^6.37.7",

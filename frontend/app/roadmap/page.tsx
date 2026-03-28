@@ -44,6 +44,14 @@ interface Roadmap {
   projects: WowProject[];
 }
 
+interface SavedRoadmapItem {
+  id: number;
+  createdAt: string;
+  jobRole: string;
+  matchScore: number;
+  roadmapData: Roadmap;
+}
+
 const resourceIcon = (type: string) => {
   switch (type) {
     case 'video': return <Youtube size={13} className="text-[#FF453A]" />;
@@ -69,7 +77,7 @@ export default function RoadmapPage() {
   const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set());
   const [loadingMsg, setLoadingMsg] = useState('Detecting your target role...');
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<SavedRoadmapItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const loadingSteps = [
@@ -94,7 +102,7 @@ export default function RoadmapPage() {
       const user = getUser();
       if (!user) return;
       const data = await api.get(`/api/roadmap/saved/${user.id}`);
-      setHistory(data.roadmaps || []);
+      setHistory((data.roadmaps || []) as SavedRoadmapItem[]);
     } catch (err) {
       console.error(err);
     } finally {
