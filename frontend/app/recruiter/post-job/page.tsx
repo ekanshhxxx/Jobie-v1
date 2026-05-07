@@ -209,6 +209,19 @@ export default function RecruiterPostJobPage() {
       intent,
     };
 
+    const legacyFallbackPayload = {
+      title: payload.title,
+      company: payload.company,
+      location: payload.location,
+      salary: payload.salary,
+      description: payload.description,
+      recruiterId: user.id,
+      status: intent === 'draft' ? 'pending' : 'approved',
+      skills: nextSkills,
+      techSkills: nextTech,
+      experience: payload.experienceLevel,
+    };
+
     if (!payload.title || !payload.company || !payload.location || !payload.salary || !payload.description) {
       toast({
         type: 'warning',
@@ -230,7 +243,16 @@ export default function RecruiterPostJobPage() {
     setSubmitting(true);
 
     try {
-      await api.post('/api/jobs', payload);
+      try {
+        await api.post('/api/jobs', payload);
+      } catch (error: unknown) {
+        // Compatibility retry for environments still running older backend job payload contracts.
+        if (isApiError(error) && error.status >= 500) {
+          await api.post('/api/jobs', legacyFallbackPayload);
+        } else {
+          throw error;
+        }
+      }
       toast({
         type: 'success',
         title: intent === 'publish' ? 'Job published successfully' : 'Draft saved successfully',

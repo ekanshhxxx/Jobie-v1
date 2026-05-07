@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import "./globals.css";
 import "./reference-ui.css";
+import "./glass-ui.css";
 import Navbar from "./components/CardNav";
 import ThemeProvider from "./components/ThemeProvider";
 import ToastProvider from "./components/ToastProvider";
 import ChatbotWidget from "./components/ChatbotWidget";
+import SecretAdminAccess from "@/components/SecretAdminAccess";
 
 const offlineFontVariables: CSSProperties = {
   ["--font-geist-sans" as string]: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
@@ -34,6 +36,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <ToastProvider>
+            <SecretAdminAccess />
             <Navbar />
             {children}
             <ChatbotWidget />

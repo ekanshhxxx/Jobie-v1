@@ -33,25 +33,25 @@ type AdminApp = {
 
 // ─── Theme palettes ─────────────────────────────────────────────────────────
 const DARK = {
-  bg:     '#0a0a0a',
-  bg2:    '#050505',
-  border: '#1f521f',
-  muted:  '#1f521f',
-  text:   '#33ff00',
-  green:  '#33ff00',
-  amber:  '#ffb000',
-  red:    '#ff3333',
-  cyan:   '#00e5ff',
-  gGlow:  '0 0 8px rgba(51,255,0,0.5)',
-  aGlow:  '0 0 8px rgba(255,176,0,0.5)',
-  rGlow:  '0 0 8px rgba(255,51,51,0.5)',
-  cGlow:  '0 0 8px rgba(0,229,255,0.4)',
-  grid:   '#1a1a1a',
-  chartBg:'#0e0e0e',
-  chartAxis: '#1f521f',
-  chartGridStroke: '#1a2e1a',
-  tooltipBg: '#0e0e0e',
-  tooltipBorder: '#1f521f',
+  bg:     '#0f1419',   // Lighter than pure black for better visibility
+  bg2:    '#0a0e14',   // Slightly lighter secondary background
+  border: '#2d3748',   // More visible border
+  muted:  '#6b7280',   // More readable muted text
+  text:   '#a3be8c',   // Softer green that's easier on eyes
+  green:  '#88c0d0',   // Softer cyan-green
+  amber:  '#ebcb8b',   // Softer amber
+  red:    '#bf616a',   // Softer red
+  cyan:   '#81a1c1',   // Softer cyan
+  gGlow:  '0 0 8px rgba(136,192,208,0.3)',
+  aGlow:  '0 0 8px rgba(235,203,139,0.3)',
+  rGlow:  '0 0 8px rgba(191,97,106,0.3)',
+  cGlow:  '0 0 8px rgba(129,161,193,0.3)',
+  grid:   '#1a1f2e',
+  chartBg:'#0f1419',
+  chartAxis: '#4c566a',
+  chartGridStroke: '#2e3440',
+  tooltipBg: '#0a0e14',
+  tooltipBorder: '#2d3748',
 };
 const LIGHT = {
   bg:     '#f5f5f0',
@@ -234,6 +234,8 @@ const COMMANDS: Record<string, (args: string[], ctx: { stats: Stats | null; user
     '─── SYSTEM ─────────────────────────────────────────',
     '  version             — build info',
     '  clear               — clear terminal log',
+    '  logout              — logout and return to login page',
+    '  exit                — alias: logout',
   ],
   version: () => ['JOBIE ADMIN TERMINAL v2.0.0 — build 2026.03', 'Stack: Next.js + Express + MySQL + recharts'],
   stats: (_, ctx) => {
@@ -715,6 +717,20 @@ export default function AdminPage() {
                 }}
               >
                 [REFRESH]
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  router.push('/login');
+                }}
+                style={{
+                  border: `1px solid ${T.red}`, color: T.red, backgroundColor: 'transparent',
+                  fontFamily: FONT, fontSize: '11px', padding: '4px 12px', cursor: 'pointer',
+                  letterSpacing: '0.05em', textShadow: T.rGlow,
+                }}
+              >
+                [LOGOUT]
               </button>
             </div>
           </div>

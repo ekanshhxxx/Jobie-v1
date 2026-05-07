@@ -1,108 +1,132 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { api, clearAuth, getUser, isApiError } from '../../lib/api';
+import { useRouter } from 'next/navigation';
+import { api, clearAuth, getUser } from '../../lib/api';
 import { useToast } from '../../components/ToastProvider';
-import { ArrowRight, CircleUserRound, Filter, Loader2, Search } from 'lucide-react';
+import { CalendarClock, MessageSquare, RefreshCw, Search, UserRound } from 'lucide-react';
 
-type RecruiterJob = {
-  id: number;
-  title: string;
-  company: string;
-  location: string;
-  lifecycleStatus: 'draft' | 'published' | 'closed';
-  approvalStatus: 'approved' | 'pending_review' | 'rejected';
-  applicantCount: number;
-  newApplicantCount: number;
-};
+type ApplicationStatus =
+  | 'applied'
+  | 'shortlisted'
+  | 'interview_scheduled'
+  | 'interview_done'
+  | 'offer_sent'
+  | 'offer_accepted'
+  | 'offer_rejected'
+  | 'hired'
+  | 'rejected';
 
-type RecruiterApplication = {
+interface RecruiterApplication {
   id: number;
   userId: number;
   jobId: number;
-  status: string;
+  status: ApplicationStatus;
   createdAt: string | null;
   User: {
     id: number;
     name: string;
     email: string;
-    role: string;
-    profile: {
-      title: string;
-      skills: string[];
+    profile?: {
+      title?: string;
+      skills?: string[];
     };
   };
   Job: {
     id: number;
     title: string;
     company: string;
-    location: string;
-    lifecycleStatus: string;
-    approvalStatus: string;
+    location?: string;
   } | null;
-  matchSummary: {
+  matchSummary?: {
     matchScore: number;
     hiringProbability: number;
     matchedSkills: string[];
     missingSkills: string[];
-    matchedTech: string[];
-    missingTech: string[];
   };
-};
-
-const STAGES = [
-  { key: 'applied', label: 'Applied' },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'interview', label: 'Interview' },
-  { key: 'offer', label: 'Offer' },
-  { key: 'hired', label: 'Hired' },
-] as const;
-
-function stageKey(status: string) {
-  if (status === 'applied') return 'applied';
-  if (status === 'shortlisted') return 'shortlisted';
-  if (status.startsWith('interview')) return 'interview';
-  if (status.startsWith('offer')) return 'offer';
-  if (status === 'hired') return 'hired';
-  return 'applied';
 }
 
-function matchBadge(score: number) {
-  if (score >= 80) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-  if (score >= 60) return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
-  if (score >= 40) return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-  return 'bg-red-500/15 text-red-300 border-red-500/30';
+interface RecruiterMeeting {
+  id: number;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  candidate?: { id: number; name: string };
+  job?: { id: number; title: string };
 }
 
-function timeAgo(value: string | null) {
-  if (!value) return '-';
-  const diff = Math.max(0, Date.now() - new Date(value).getTime());
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
+const STATUSES: ApplicationStatus[] = [
+  'applied',
+  'shortlisted',
+  'interview_scheduled',
+  'interview_done',
+  'offer_sent',
+  'offer_accepted',
+  'offer_rejected',
+  'hired',
+  'rejected',
+];
+
+function toLabel(value: string) {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function parseErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function statusBadgeClass(status: ApplicationStatus) {
+  const map: Record<ApplicationStatus, string> = {
+    applied: 'bg-slate-100 text-slate-700 border-slate-200',
+    shortlisted: 'bg-blue-50 text-blue-700 border-blue-200',
+    interview_scheduled: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    interview_done: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    offer_sent: 'bg-violet-50 text-violet-700 border-violet-200',
+    offer_accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    offer_rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+    hired: 'bg-green-50 text-green-700 border-green-200',
+    rejected: 'bg-red-50 text-red-700 border-red-200',
+  };
+  return map[status] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+}
+
+function formatDate(dateValue: string | null) {
+  if (!dateValue) return 'Unknown';
+  return new Date(dateValue).toLocaleString();
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
 }
 
 export default function RecruiterApplicationsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [roles, setRoles] = useState<RecruiterJob[]>([]);
   const [applications, setApplications] = useState<RecruiterApplication[]>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+  const [meetings, setMeetings] = useState<RecruiterMeeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [selectedApp, setSelectedApp] = useState<RecruiterApplication | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | ApplicationStatus>('all');
+  const [busyId, setBusyId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadPipeline();
-  }, []);
+  const [scheduleTarget, setScheduleTarget] = useState<RecruiterApplication | null>(null);
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [scheduleDescription, setScheduleDescription] = useState('');
+  const [scheduleMeetingUrl, setScheduleMeetingUrl] = useState('');
+  const [scheduleAt, setScheduleAt] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+  const [scheduleDuration, setScheduleDuration] = useState(45);
 
-  const loadPipeline = async () => {
+  const handleUnauthorized = () => {
+    clearAuth();
+    router.push('/login');
+  };
+
+  const fetchPipeline = async () => {
     try {
       setLoading(true);
       const user = getUser();
@@ -110,311 +134,419 @@ export default function RecruiterApplicationsPage() {
         router.push('/login');
         return;
       }
-      if (user.role !== 'recruiter') {
+      if (user.role !== 'recruiter' && user.role !== 'admin') {
         router.push('/candidate/dashboard');
         return;
       }
 
-      const [rolesResult, appsResult] = await Promise.all([
-        api.get(`/api/jobs/recruiter?recruiterId=${user.id}`),
+      const [appData, meetingData] = await Promise.all([
         api.get(`/api/applications/recruiter/${user.id}`),
+        api.get('/api/meetings/recruiter').catch(() => []),
       ]);
 
-      const nextRoles: RecruiterJob[] = Array.isArray(rolesResult) ? rolesResult : rolesResult.jobs || [];
-      const nextApps: RecruiterApplication[] = Array.isArray(appsResult) ? appsResult : appsResult.applications || [];
-      setRoles(nextRoles);
-      setApplications(nextApps);
-
-      const urlJob = Number(searchParams.get('job'));
-      if (urlJob && nextRoles.some((role) => role.id === urlJob)) {
-        setSelectedRoleId(urlJob);
-      } else {
-        setSelectedRoleId(nextRoles[0]?.id ?? null);
-      }
-    } catch (error: unknown) {
-      if (isApiError(error) && error.status === 401) {
-        clearAuth();
-        router.push('/login');
+      setApplications(Array.isArray(appData) ? appData : []);
+      setMeetings(Array.isArray(meetingData) ? meetingData : []);
+    } catch (error) {
+      const message = parseErrorMessage(error, 'Could not load applicant pipeline.');
+      if (/unauthorized|jwt|token|access denied/i.test(message)) {
+        handleUnauthorized();
         return;
       }
       toast({
         type: 'error',
-        title: 'Could not load pipeline',
-        message: isApiError(error) ? error.message : 'Please refresh and try again.',
+        title: 'Pipeline unavailable',
+        message,
       });
-      setRoles([]);
-      setApplications([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedRole = useMemo(
-    () => roles.find((role) => role.id === selectedRoleId) || null,
-    [roles, selectedRoleId]
-  );
+  useEffect(() => {
+    void fetchPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const roleApplications = useMemo(() => {
-    return applications
-      .filter((application) => application.jobId === selectedRoleId)
-      .filter((application) => {
-        if (!search.trim()) return true;
-        const bag = `${application.User?.name || ''} ${application.User?.profile?.title || ''} ${application.User?.email || ''}`.toLowerCase();
-        return bag.includes(search.toLowerCase());
-      });
-  }, [applications, selectedRoleId, search]);
+  const meetingByCandidateJob = useMemo(() => {
+    const map = new Map<string, RecruiterMeeting>();
+    for (const meeting of meetings) {
+      const candidateId = meeting.candidate?.id;
+      const jobId = meeting.job?.id;
+      if (!candidateId || !jobId) continue;
+      const key = `${candidateId}:${jobId}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, meeting);
+        continue;
+      }
+      const existingTime = new Date(existing.scheduledAt).getTime();
+      const nextTime = new Date(meeting.scheduledAt).getTime();
+      if (nextTime > Date.now() && (existingTime < Date.now() || nextTime < existingTime)) {
+        map.set(key, meeting);
+      }
+    }
+    return map;
+  }, [meetings]);
 
-  const grouped = useMemo(() => {
-    const buckets: Record<string, RecruiterApplication[]> = {
-      applied: [],
-      shortlisted: [],
-      interview: [],
-      offer: [],
-      hired: [],
-    };
-    roleApplications.forEach((application) => {
-      buckets[stageKey(application.status)].push(application);
+  const filteredApplications = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return applications.filter((app) => {
+      if (statusFilter !== 'all' && app.status !== statusFilter) return false;
+      if (!needle) return true;
+      const haystack = [
+        app.User?.name,
+        app.User?.email,
+        app.Job?.title,
+        app.Job?.company,
+        ...(app.User?.profile?.skills ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
     });
-    return buckets;
-  }, [roleApplications]);
+  }, [applications, search, statusFilter]);
 
-  const updateStatus = async (applicationId: number, status: string) => {
+  const updateStatus = async (applicationId: number, nextStatus: ApplicationStatus) => {
     try {
-      setUpdatingId(applicationId);
-      await api.put(`/api/applications/${applicationId}`, { status });
-      setApplications((prev) => prev.map((item) => (item.id === applicationId ? { ...item, status } : item)));
-      setSelectedApp((current) => (current?.id === applicationId ? { ...current, status } : current));
-      toast({ type: 'success', title: 'Candidate moved', message: `Status updated to ${status.replace('_', ' ')}` });
-    } catch (error: unknown) {
+      setBusyId(applicationId);
+      await api.put(`/api/applications/${applicationId}/status`, { status: nextStatus });
+      setApplications((prev) =>
+        prev.map((item) => (item.id === applicationId ? { ...item, status: nextStatus } : item))
+      );
+      toast({
+        type: 'success',
+        title: 'Status updated',
+        message: `Application moved to ${toLabel(nextStatus)}.`,
+      });
+    } catch (error) {
       toast({
         type: 'error',
         title: 'Status update failed',
-        message: isApiError(error) ? error.message : 'Could not update candidate status.',
+        message: parseErrorMessage(error, 'Try again in a moment.'),
       });
     } finally {
-      setUpdatingId(null);
+      setBusyId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <main className="r-main">
-        <div className="flex items-center gap-2 text-sm text-[var(--t2)]">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading recruiter pipeline...
-        </div>
-      </main>
-    );
-  }
+  const openSchedule = (application: RecruiterApplication) => {
+    setScheduleTarget(application);
+    setScheduleTitle(`${application.Job?.title ?? 'Interview'} - ${application.User?.name ?? 'Candidate'}`);
+    setScheduleDescription('Live interview discussion and role fit assessment.');
+    setScheduleMeetingUrl('');
+    setScheduleAt(toDateTimeLocalValue(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+    setScheduleDuration(45);
+  };
+
+  const submitSchedule = async () => {
+    if (!scheduleTarget) return;
+    if (!scheduleAt) {
+      toast({ type: 'warning', title: 'Missing date/time', message: 'Select an interview time first.' });
+      return;
+    }
+
+    const cleanMeetingUrl = scheduleMeetingUrl.trim();
+    if (!cleanMeetingUrl) {
+      toast({ type: 'warning', title: 'Missing Google Meet link', message: 'Paste a Google Meet URL before confirming.' });
+      return;
+    }
+
+    if (!/^https:\/\/meet\.google\.com\/.+/i.test(cleanMeetingUrl)) {
+      toast({ type: 'warning', title: 'Invalid Google Meet link', message: 'Use a valid https://meet.google.com/... URL.' });
+      return;
+    }
+
+    const iso = new Date(scheduleAt).toISOString();
+    if (!iso || iso === 'Invalid Date') {
+      toast({ type: 'warning', title: 'Invalid date/time', message: 'Please use a valid interview time.' });
+      return;
+    }
+
+    try {
+      setBusyId(scheduleTarget.id);
+      await api.post('/api/meetings/schedule', {
+        jobId: scheduleTarget.jobId,
+        candidateId: scheduleTarget.userId,
+        title: scheduleTitle,
+        description: scheduleDescription,
+        meetingUrl: cleanMeetingUrl,
+        scheduledAt: iso,
+        duration: scheduleDuration,
+      });
+
+      setApplications((prev) =>
+        prev.map((item) =>
+          item.id === scheduleTarget.id
+            ? {
+                ...item,
+                status: 'interview_scheduled',
+              }
+            : item
+        )
+      );
+
+      setScheduleTarget(null);
+      toast({
+        type: 'success',
+        title: 'Interview scheduled',
+        message: `Interview added for ${scheduleTarget.User?.name ?? 'candidate'}.`,
+      });
+      await fetchPipeline();
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Could not schedule interview',
+        message: parseErrorMessage(error, 'Please review candidate and role details.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pipelineStats = useMemo(() => {
+    const total = applications.length;
+    const active = applications.filter((app) => !['rejected', 'hired'].includes(app.status)).length;
+    const interviewing = applications.filter((app) =>
+      ['interview_scheduled', 'interview_done'].includes(app.status)
+    ).length;
+    const hires = applications.filter((app) => app.status === 'hired').length;
+    return { total, active, interviewing, hires };
+  }, [applications]);
 
   return (
-    <main className="r-main">
-      <section className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--s1)] p-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-[0.16em] text-[var(--t3)]">Pipeline</div>
-            <h1 className="mt-2 text-[28px] font-semibold leading-none tracking-[-0.03em] text-[var(--t1)]">Role-Centric Candidate Flow</h1>
-            <p className="mt-2 text-sm text-[var(--t2)]">Every role appears here, even with zero applicants. Select a role to manage its candidate stages.</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Candidate Pipeline</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Review applicants, start messaging, and schedule interviews from one workspace.
+            </p>
           </div>
           <button
-            type="button"
-            onClick={() => router.push('/recruiter/post-job')}
-            className="rounded-lg bg-[var(--p)] px-3 py-2 text-xs font-semibold text-white"
+            onClick={() => void fetchPipeline()}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
           >
-            + Create Role
+            <RefreshCw className="w-4 h-4" />
+            Refresh
           </button>
         </div>
-      </section>
 
-      <section className="grid gap-4 lg:grid-cols-[290px,1fr]">
-        <aside className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--s1)] p-3">
-          <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.12em] text-[var(--t3)]">
-            <span>Roles</span>
-            <span>{roles.length}</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Total Applicants</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.total}</p>
           </div>
-          <div className="space-y-2">
-            {roles.map((role) => {
-              const isActive = role.id === selectedRoleId;
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => setSelectedRoleId(role.id)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                    isActive
-                      ? 'border-[var(--p-hi)] bg-[var(--p-lo)]'
-                      : 'border-[var(--border)] bg-[var(--s2)]'
-                  }`}
-                >
-                  <div className="text-sm font-medium text-[var(--t1)]">{role.title}</div>
-                  <div className="mt-1 text-[11px] text-[var(--t3)]">{role.company}</div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--t2)]">
-                    <span>{role.applicantCount} applicants</span>
-                    {role.newApplicantCount > 0 ? <span>+{role.newApplicantCount} new</span> : <span>0 new</span>}
-                  </div>
-                </button>
-              );
-            })}
-            {roles.length === 0 && (
-              <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-8 text-center text-xs text-[var(--t3)]">
-                No roles yet.
-              </div>
-            )}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Active Pipeline</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.active}</p>
           </div>
-        </aside>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Interview Stage</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.interviewing}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Hired</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.hires}</p>
+          </div>
+        </div>
 
-        <div className="space-y-4">
-          <section className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--s1)] p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[260px] flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--t3)]" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search candidate name, title, email..."
-                  className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--s2)] px-9 text-sm text-[var(--t1)] outline-none placeholder:text-[var(--t3)]"
-                />
-              </div>
-              <button
-                type="button"
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--s2)] px-3 text-xs text-[var(--t2)]"
-              >
-                <Filter className="h-3.5 w-3.5" />
-                {selectedRole ? selectedRole.title : 'No role selected'}
-              </button>
-            </div>
-          </section>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <label className="relative flex-1">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by candidate, email, role, company, skill"
+                className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
 
-          {selectedRole ? (
-            <section className="overflow-x-auto">
-              <div className="grid min-w-[900px] grid-cols-5 gap-3">
-                {STAGES.map((stage) => (
-                  <div key={stage.key} className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--s1)] p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--t3)]">{stage.label}</div>
-                      <div className="rounded-full border border-[var(--border)] bg-[var(--s2)] px-2 py-0.5 text-[10px] text-[var(--t2)]">
-                        {grouped[stage.key].length}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | ApplicationStatus)}
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+            >
+              <option value="all">All statuses</option>
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {toLabel(status)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loading ? (
+            <div className="py-14 text-center text-sm text-gray-500">Loading applicant pipeline...</div>
+          ) : filteredApplications.length === 0 ? (
+            <div className="py-14 text-center text-sm text-gray-500">No applications matched your current filters.</div>
+          ) : (
+            <div className="space-y-3">
+              {filteredApplications.map((application) => {
+                const nextMeeting = meetingByCandidateJob.get(`${application.userId}:${application.jobId}`);
+                return (
+                  <article key={application.id} className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                    <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-base font-semibold text-gray-900 truncate">{application.User?.name ?? 'Candidate'}</h2>
+                          <span className={`text-xs px-2 py-1 rounded-full border ${statusBadgeClass(application.status)}`}>
+                            {toLabel(application.status)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 truncate">{application.User?.email || 'No email available'}</p>
+                        <p className="text-sm text-gray-800 font-medium">
+                          {application.Job?.title ?? 'Role unavailable'}
+                          <span className="text-gray-500 font-normal"> · {application.Job?.company ?? 'Company unavailable'}</span>
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2 py-1">Applied: {formatDate(application.createdAt)}</span>
+                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
+                            Match: {application.matchSummary?.matchScore ?? 0}%
+                          </span>
+                          <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">
+                            Hire probability: {application.matchSummary?.hiringProbability ?? 0}%
+                          </span>
+                        </div>
+                        {!!nextMeeting && (
+                          <p className="text-xs text-cyan-700 bg-cyan-50 border border-cyan-200 inline-flex rounded-lg px-2.5 py-1.5">
+                            Next interview: {new Date(nextMeeting.scheduledAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 xl:w-56">
+                        <button
+                          onClick={() => router.push(`/profile/${application.userId}`)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                          <UserRound className="w-4 h-4" />
+                          View Profile
+                        </button>
+
+                        <button
+                          onClick={() => router.push(`/recruiter/messages?candidateId=${application.userId}&jobId=${application.jobId}`)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Open Chat
+                        </button>
+
+                        <button
+                          onClick={() => openSchedule(application)}
+                          disabled={busyId === application.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 hover:bg-cyan-100 disabled:opacity-60"
+                        >
+                          <CalendarClock className="w-4 h-4" />
+                          Schedule Interview
+                        </button>
+
+                        <select
+                          value={application.status}
+                          onChange={(e) => void updateStatus(application.id, e.target.value as ApplicationStatus)}
+                          disabled={busyId === application.id}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:opacity-60"
+                        >
+                          {STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {toLabel(status)}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      {grouped[stage.key].map((application) => (
-                        <button
-                          key={application.id}
-                          type="button"
-                          onClick={() => setSelectedApp(application)}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--s2)] p-2 text-left"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="text-sm font-medium text-[var(--t1)]">{application.User?.name || 'Candidate'}</div>
-                              <div className="mt-0.5 text-[11px] text-[var(--t3)]">{application.User?.profile?.title || 'Applicant'}</div>
-                            </div>
-                            <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${matchBadge(application.matchSummary?.matchScore || 0)}`}>
-                              {application.matchSummary?.matchScore ?? 0}%
-                            </span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between text-[10px] text-[var(--t3)]">
-                            <span>{timeAgo(application.createdAt)}</span>
-                            <span className="inline-flex items-center gap-1 text-[var(--t2)]">
-                              Open
-                              <ArrowRight className="h-3 w-3" />
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                      {grouped[stage.key].length === 0 && (
-                        <div className="rounded-lg border border-dashed border-[var(--border)] px-2 py-6 text-center text-[11px] text-[var(--t3)]">
-                          Empty
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-[var(--r-lg)] border border-dashed border-[var(--border)] bg-[var(--s1)] p-8 text-center text-sm text-[var(--t3)]">
-              Select a role to view its pipeline.
-            </section>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </div>
-      </section>
+      </div>
 
-      {selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedApp(null)} />
-          <div className="relative z-10 w-full max-w-3xl rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--s1)] p-4">
-            <div className="mb-3 flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--s2)] text-[var(--t2)]">
-                  <CircleUserRound className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-[var(--t1)]">{selectedApp.User?.name || 'Candidate'}</div>
-                  <div className="text-xs text-[var(--t3)]">{selectedApp.User?.email}</div>
-                </div>
-              </div>
-              <button type="button" onClick={() => setSelectedApp(null)} className="rounded-md border border-[var(--border)] bg-[var(--s2)] px-2 py-1 text-xs text-[var(--t2)]">
-                Close
+      {scheduleTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white shadow-2xl p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Schedule Interview</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {scheduleTarget.User?.name} · {scheduleTarget.Job?.title}
+              </p>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Title</span>
+              <input
+                value={scheduleTitle}
+                onChange={(e) => setScheduleTitle(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Google Meet URL</span>
+              <input
+                value={scheduleMeetingUrl}
+                onChange={(e) => setScheduleMeetingUrl(e.target.value)}
+                placeholder="https://meet.google.com/abc-defg-hij"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Description</span>
+              <textarea
+                value={scheduleDescription}
+                onChange={(e) => setScheduleDescription(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Date & time</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Duration (minutes)</span>
+                <input
+                  type="number"
+                  min={15}
+                  max={180}
+                  step={15}
+                  value={scheduleDuration}
+                  onChange={(e) => setScheduleDuration(Number(e.target.value) || 30)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setScheduleTarget(null)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
               </button>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--t3)]">AI Match</div>
-                <div className={`mt-1 inline-flex rounded-md border px-2 py-1 text-sm font-semibold ${matchBadge(selectedApp.matchSummary?.matchScore || 0)}`}>
-                  {selectedApp.matchSummary?.matchScore ?? 0}% score
-                </div>
-                <div className="mt-2 text-xs text-[var(--t2)]">Hiring probability: {selectedApp.matchSummary?.hiringProbability ?? 0}%</div>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--t3)]">Status</div>
-                <select
-                  value={selectedApp.status}
-                  onChange={(event) => updateStatus(selectedApp.id, event.target.value)}
-                  className="mt-1 h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--s1)] px-3 text-sm text-[var(--t1)] outline-none"
-                  disabled={updatingId === selectedApp.id}
-                >
-                  <option value="applied">Applied</option>
-                  <option value="shortlisted">Shortlisted</option>
-                  <option value="interview_scheduled">Interview Scheduled</option>
-                  <option value="interview_done">Interview Done</option>
-                  <option value="offer_sent">Offer Sent</option>
-                  <option value="offer_accepted">Offer Accepted</option>
-                  <option value="offer_rejected">Offer Rejected</option>
-                  <option value="hired">Hired</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--t3)]">Matched Skills</div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {[...(selectedApp.matchSummary?.matchedSkills || []), ...(selectedApp.matchSummary?.matchedTech || [])].map((skill) => (
-                    <span key={skill} className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">{skill}</span>
-                  ))}
-                  {selectedApp.matchSummary?.matchedSkills?.length === 0 && selectedApp.matchSummary?.matchedTech?.length === 0 && (
-                    <span className="text-xs text-[var(--t3)]">No direct matches yet.</span>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--t3)]">Missing Skills</div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {[...(selectedApp.matchSummary?.missingSkills || []), ...(selectedApp.matchSummary?.missingTech || [])].map((skill) => (
-                    <span key={skill} className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300">{skill}</span>
-                  ))}
-                  {selectedApp.matchSummary?.missingSkills?.length === 0 && selectedApp.matchSummary?.missingTech?.length === 0 && (
-                    <span className="text-xs text-[var(--t3)]">Candidate covers current role requirements.</span>
-                  )}
-                </div>
-              </div>
+              <button
+                onClick={() => void submitSchedule()}
+                disabled={busyId === scheduleTarget.id}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
+              >
+                Confirm Interview
+              </button>
             </div>
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

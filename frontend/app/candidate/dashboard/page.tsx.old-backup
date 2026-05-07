@@ -13,7 +13,6 @@ import {
   CalendarClock,
   CheckCircle2,
   FileSearch,
-  MessageSquare,
   RefreshCcw,
   Sparkles,
   Target,
@@ -51,13 +50,13 @@ function statusTone(status: string) {
   switch (status) {
     case 'applied':
     case 'shortlisted':
-      return 'border-[rgba(62,121,173,0.24)] bg-[rgba(62,121,173,0.14)] text-[var(--blue-2)]';
+      return 'border-[rgba(79,172,254,0.2)] bg-[rgba(79,172,254,0.12)] text-[var(--blue-2)]';
     case 'interview_scheduled':
     case 'interview_done':
       return 'border-[rgba(34,211,123,0.2)] bg-[rgba(34,211,123,0.12)] text-[var(--green)]';
     case 'offer_sent':
     case 'offer_accepted':
-      return 'border-[rgba(245,166,35,0.22)] bg-[rgba(245,166,35,0.14)] text-[var(--amber)]';
+      return 'border-[rgba(155,127,255,0.2)] bg-[rgba(155,127,255,0.12)] text-[var(--violet)]';
     case 'offer_rejected':
     case 'rejected':
       return 'border-[rgba(255,92,92,0.2)] bg-[rgba(255,92,92,0.12)] text-[var(--red)]';
@@ -107,12 +106,12 @@ function MetricCard({
   note: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,24,0.72)] p-5">
+    <div className="rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,24,0.7)] p-5">
       <div className="flex items-center justify-between">
-        <span className="rounded-xl bg-[rgba(62,121,173,0.14)] p-3 text-[var(--blue-2)]">{icon}</span>
-        <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{label}</span>
+        <span className="rounded-full bg-[rgba(79,172,254,0.12)] p-3 text-[var(--blue-2)]">{icon}</span>
+        <span className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">{label}</span>
       </div>
-      <p className="mt-5 text-3xl font-semibold text-[var(--white)]">{value}</p>
+      <p className="mt-5 font-['Syne'] text-4xl font-bold text-[var(--white)]">{value}</p>
       <p className="mt-2 text-sm text-[var(--white-dim)]">{note}</p>
     </div>
   );
@@ -122,10 +121,10 @@ function SideLink({ href, label, meta }: { href: string; label: string; meta: st
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--white-dim)] transition hover:border-[rgba(62,121,173,0.24)] hover:text-[var(--white)]"
+      className="flex items-center justify-between rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--white-dim)] transition hover:border-[rgba(79,172,254,0.18)] hover:text-[var(--white)]"
     >
       <span>{label}</span>
-      <span className="text-[11px] font-semibold text-[var(--blue-2)]">{meta}</span>
+      <span className="font-mono text-xs text-[var(--blue-2)]">{meta}</span>
     </Link>
   );
 }
@@ -325,7 +324,7 @@ export default function CandidateDashboardPage() {
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="space-y-3">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-[rgba(79,172,254,0.16)] border-t-[var(--blue-2)]" />
-          <p className="text-xl font-semibold text-[var(--white)]">Preparing your candidate dashboard</p>
+          <p className="font-['Syne'] text-xl font-bold text-[var(--white)]">Preparing your candidate dashboard</p>
           <p className="text-sm text-[var(--muted)]">Fetching jobs, matches, and application updates.</p>
         </div>
       </div>
@@ -341,29 +340,29 @@ export default function CandidateDashboardPage() {
     return (
       <article
         key={job.id}
-        className={`rounded-2xl border p-5 transition duration-300 hover:border-[rgba(62,121,173,0.3)] ${
+        className={`rounded-[28px] border p-5 transition duration-300 hover:-translate-y-1 hover:border-[rgba(79,172,254,0.28)] ${
           feature
-            ? 'border-[rgba(62,121,173,0.2)] bg-[rgba(20,30,55,0.72)]'
+            ? 'border-[rgba(79,172,254,0.2)] bg-[linear-gradient(145deg,rgba(20,37,78,0.72),rgba(10,18,37,0.9))]'
             : 'border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,24,0.68)]'
         }`}
       >
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.05)] text-xl font-semibold text-[var(--white)]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.05)] font-['Syne'] text-xl font-extrabold text-[var(--white)]">
               {(job.company ?? 'J').slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <Link href={`/jobs/${job.id}`} className="text-lg font-semibold text-[var(--white)] transition hover:text-[var(--blue-2)]">
+                <Link href={`/jobs/${job.id}`} className="font-['Syne'] text-xl font-bold text-[var(--white)] transition hover:text-[var(--blue-2)]">
                   {job.title}
                 </Link>
                 {feature && (
-                  <span className="rounded-lg border border-[rgba(62,121,173,0.24)] bg-[rgba(62,121,173,0.14)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--blue-2)]">
+                  <span className="rounded-full border border-[rgba(79,172,254,0.2)] bg-[rgba(79,172,254,0.12)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--blue-2)]">
                     AI Match
                   </span>
                 )}
                 {saved && (
-                  <span className="rounded-lg border border-[rgba(245,166,35,0.22)] bg-[rgba(245,166,35,0.14)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--amber)]">
+                  <span className="rounded-full border border-[rgba(245,166,35,0.2)] bg-[rgba(245,166,35,0.12)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--amber)]">
                     Saved
                   </span>
                 )}
@@ -372,14 +371,14 @@ export default function CandidateDashboardPage() {
                 {job.company ?? 'Confidential company'} - {job.location || 'Location flexible'}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs text-[var(--white-dim)]">
+                <span className="rounded-full border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs text-[var(--white-dim)]">
                   {compensation(job)}
                 </span>
-                <span className="rounded-lg border border-[rgba(62,121,173,0.18)] bg-[rgba(62,121,173,0.1)] px-3 py-1.5 text-xs text-[var(--blue-2)]">
+                <span className="rounded-full border border-[rgba(79,172,254,0.14)] bg-[rgba(79,172,254,0.08)] px-3 py-1.5 text-xs text-[var(--blue-2)]">
                   {jobMode(job)}
                 </span>
                 {matchScores[job.id]?.missingSkills?.[0] && (
-                  <span className="rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs text-[var(--white-dim)]">
+                  <span className="rounded-full border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs text-[var(--white-dim)]">
                     Gap: {matchScores[job.id]?.missingSkills?.[0]}
                   </span>
                 )}
@@ -388,12 +387,12 @@ export default function CandidateDashboardPage() {
           </div>
 
           <div className="flex flex-col gap-3 xl:items-end">
-            <div className="flex items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <div className="flex items-center gap-3 rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(79,172,254,0.16)] bg-[rgba(79,172,254,0.08)] font-mono text-sm font-semibold text-[var(--blue-2)]">
                 {score}%
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Match</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Match</p>
                 <p className="text-sm text-[var(--white)]">{score >= 75 ? 'Strong fit' : score >= 55 ? 'Worth a look' : 'Emerging fit'}</p>
               </div>
             </div>
@@ -402,7 +401,7 @@ export default function CandidateDashboardPage() {
               <button
                 type="button"
                 onClick={() => toggleSave(job.id)}
-                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white-dim)] transition hover:border-[rgba(245,166,35,0.22)] hover:text-[var(--amber)]"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white-dim)] transition hover:border-[rgba(245,166,35,0.22)] hover:text-[var(--amber)]"
               >
                 {saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
                 {saved ? 'Saved' : 'Save role'}
@@ -411,7 +410,7 @@ export default function CandidateDashboardPage() {
               {applied ? (
                 <Link
                   href="/candidate/applications"
-                  className="inline-flex items-center gap-2 rounded-lg border border-[rgba(34,211,123,0.2)] bg-[rgba(34,211,123,0.12)] px-4 py-2 text-sm font-semibold text-[var(--green)]"
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,123,0.18)] bg-[rgba(34,211,123,0.12)] px-4 py-2 text-sm font-semibold text-[var(--green)]"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   In pipeline
@@ -421,7 +420,7 @@ export default function CandidateDashboardPage() {
                   type="button"
                   onClick={() => applyToJob(job.id)}
                   disabled={applying}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--blue-1)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--blue-2)] disabled:opacity-70"
+                  className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--blue-1),var(--blue-2))] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
                 >
                   {applying ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   {applying ? 'Applying...' : 'Apply now'}
@@ -430,7 +429,7 @@ export default function CandidateDashboardPage() {
 
               <Link
                 href={`/jobs/${job.id}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(62,121,173,0.2)] bg-[rgba(62,121,173,0.1)] px-4 py-2 text-sm font-medium text-[var(--blue-2)]"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(79,172,254,0.18)] bg-[rgba(79,172,254,0.08)] px-4 py-2 text-sm font-medium text-[var(--blue-2)]"
               >
                 View role
               </Link>
@@ -454,51 +453,47 @@ export default function CandidateDashboardPage() {
   return (
     <div className="c-content-body candidate-dashboard-page">
       <div className="c-left-scroll">
-        <section className="relative overflow-hidden rounded-2xl border border-[rgba(62,121,173,0.2)] bg-[rgba(15,20,35,0.85)] backdrop-blur-sm p-6 shadow-xl sm:p-8">
-          
+        <section className="relative overflow-hidden rounded-[32px] border border-[rgba(79,172,254,0.16)] bg-[linear-gradient(135deg,rgba(16,28,64,0.96),rgba(10,18,35,0.92))] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.24)] sm:p-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,242,254,0.12),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(79,172,254,0.16),transparent_34%)]" />
           <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--blue-2)]">Candidate Dashboard</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-[var(--white)] sm:text-[2.7rem]">
-                Your search is moving with clarity.
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--blue-2)]">Candidate Dashboard</p>
+              <h1 className="mt-3 font-['Syne'] text-4xl font-extrabold tracking-[-0.04em] text-[var(--white)] sm:text-5xl">
+                Your search is moving with direction.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--white-dim)]">
                 We reviewed {jobs.length} open role{jobs.length === 1 ? '' : 's'} against your profile and surfaced the strongest next steps for {user.name.split(' ')[0]}.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/resume" className="inline-flex items-center gap-2 rounded-lg bg-[var(--blue-1)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--blue-2)]">
+                <Link href="/resume" className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--blue-1),var(--blue-2))] px-5 py-3 text-sm font-semibold text-white">
                   <FileSearch className="h-4 w-4" />
                   Resume Scanner
                 </Link>
-                <Link href="/profile/edit" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.04)] px-5 py-3 text-sm font-medium text-[var(--white)]">
+                <Link href="/profile/edit" className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.04)] px-5 py-3 text-sm font-medium text-[var(--white)]">
                   <Target className="h-4 w-4" />
                   Edit Profile
                 </Link>
-                <Link href="/candidate/applications" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.04)] px-5 py-3 text-sm font-medium text-[var(--white)]">
+                <Link href="/candidate/applications" className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.04)] px-5 py-3 text-sm font-medium text-[var(--white)]">
                   <CalendarClock className="h-4 w-4" />
                   View Pipeline
-                </Link>
-                <Link href="/candidate/messages" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.04)] px-5 py-3 text-sm font-medium text-[var(--white)]">
-                  <MessageSquare className="h-4 w-4" />
-                  Messages
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:w-[420px]">
-              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Best fit</p>
-                <p className="mt-2 text-3xl font-semibold text-[var(--white)]">{topJob ? `${matchScores[topJob.id]?.matchScore ?? 0}%` : '0%'}</p>
+              <div className="rounded-[24px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">Best fit</p>
+                <p className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">{topJob ? `${matchScores[topJob.id]?.matchScore ?? 0}%` : '0%'}</p>
                 <p className="mt-1 text-sm text-[var(--white-dim)]">{topJob?.title ?? 'Add more profile detail'}</p>
               </div>
-              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Active apps</p>
-                <p className="mt-2 text-3xl font-semibold text-[var(--white)]">{activeApplications.length}</p>
+              <div className="rounded-[24px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">Active apps</p>
+                <p className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">{activeApplications.length}</p>
                 <p className="mt-1 text-sm text-[var(--white-dim)]">{interviews} interview stage</p>
               </div>
-              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Saved roles</p>
-                <p className="mt-2 text-3xl font-semibold text-[var(--white)]">{savedJobs.length}</p>
+              <div className="rounded-[24px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.05)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">Saved roles</p>
+                <p className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">{savedJobs.length}</p>
                 <p className="mt-1 text-sm text-[var(--white-dim)]">Shortlist for follow-up</p>
               </div>
             </div>
@@ -512,11 +507,11 @@ export default function CandidateDashboardPage() {
           <MetricCard icon={<Target className="h-5 w-5" />} label="Skills" value={`${profile?.skills?.length ?? 0}`} note="Core skills currently attached to your profile." />
         </section>
 
-        <section id="matches" className="rounded-2xl border border-[rgba(62,121,173,0.2)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
+        <section id="matches" className="rounded-[32px] border border-[rgba(79,172,254,0.16)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--blue-2)]">AI matches</p>
-              <h2 className="mt-2 text-3xl font-semibold text-[var(--white)]">Recommended for you</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--blue-2)]">AI matches</p>
+              <h2 className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">Recommended for you</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--white-dim)]">
                 Roles ranked highest against your skills, experience, and profile quality.
               </p>
@@ -526,12 +521,12 @@ export default function CandidateDashboardPage() {
                 type="button"
                 onClick={refreshDashboard}
                 disabled={refreshing}
-                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white)] disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white)] disabled:opacity-70"
               >
                 <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? 'Refreshing...' : 'Refresh data'}
               </button>
-              <Link href="/jobs" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(62,121,173,0.2)] bg-[rgba(62,121,173,0.1)] px-4 py-2 text-sm font-medium text-[var(--blue-2)]">
+              <Link href="/jobs" className="inline-flex items-center gap-2 rounded-full border border-[rgba(79,172,254,0.18)] bg-[rgba(79,172,254,0.08)] px-4 py-2 text-sm font-medium text-[var(--blue-2)]">
                 See all jobs
               </Link>
             </div>
@@ -539,8 +534,8 @@ export default function CandidateDashboardPage() {
 
           <div className="mt-6 space-y-4">
             {recommendedJobs.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
-                <p className="text-2xl font-semibold text-[var(--white)]">No recommended roles yet</p>
+              <div className="rounded-[28px] border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
+                <p className="font-['Syne'] text-2xl font-bold text-[var(--white)]">No recommended roles yet</p>
                 <p className="mt-2 text-sm text-[var(--white-dim)]">Add more profile detail or return later after new jobs are posted.</p>
               </div>
             ) : (
@@ -550,60 +545,60 @@ export default function CandidateDashboardPage() {
         </section>
 
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <section className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--blue-2)]">Opportunity feed</p>
-            <h2 className="mt-2 text-3xl font-semibold text-[var(--white)]">Fresh openings</h2>
+          <section className="rounded-[32px] border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--blue-2)]">Opportunity feed</p>
+            <h2 className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">Fresh openings</h2>
             <div className="mt-6 space-y-4">
               {(otherJobs.length ? otherJobs : rankedJobs.slice(0, 4)).map((job) => renderJobCard(job))}
             </div>
           </section>
 
-          <section id="saved-roles" className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
+          <section id="saved-roles" className="rounded-[32px] border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--amber)]">Saved roles</p>
-                <h2 className="mt-2 text-3xl font-semibold text-[var(--white)]">Shortlist</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--amber)]">Saved roles</p>
+                <h2 className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">Shortlist</h2>
               </div>
-              <span className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--white-dim)]">
+              <span className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--white-dim)]">
                 {savedJobs.length} saved
               </span>
             </div>
 
             {savedJobs.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
-                <p className="text-2xl font-semibold text-[var(--white)]">Build your shortlist</p>
+              <div className="mt-6 rounded-[28px] border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
+                <p className="font-['Syne'] text-2xl font-bold text-[var(--white)]">Build your shortlist</p>
                 <p className="mt-2 text-sm text-[var(--white-dim)]">Save interesting roles from the dashboard so you can compare them later.</p>
-                <Link href="/jobs" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[var(--blue-1)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--blue-2)]">
+                <Link href="/jobs" className="mt-5 inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--blue-1),var(--blue-2))] px-4 py-2 text-sm font-semibold text-white">
                   Browse Jobs
                 </Link>
               </div>
             ) : (
               <div className="mt-6 space-y-3">
                 {savedJobs.map((job) => (
-                  <div key={job.id} className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <div key={job.id} className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <Link href={`/jobs/${job.id}`} className="text-lg font-semibold text-[var(--white)] transition hover:text-[var(--blue-2)]">
+                        <Link href={`/jobs/${job.id}`} className="font-['Syne'] text-xl font-bold text-[var(--white)] transition hover:text-[var(--blue-2)]">
                           {job.title}
                         </Link>
                         <p className="mt-1 text-sm text-[var(--white-dim)]">{job.company ?? 'Confidential company'} - {job.location || 'Location flexible'}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-[var(--white-dim)]">{compensation(job)}</span>
-                          <span className="rounded-lg border border-[rgba(62,121,173,0.2)] bg-[rgba(62,121,173,0.1)] px-3 py-1 text-xs text-[var(--blue-2)]">{matchScores[job.id]?.matchScore ?? 0}% match</span>
+                          <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-[var(--white-dim)]">{compensation(job)}</span>
+                          <span className="rounded-full border border-[rgba(79,172,254,0.15)] bg-[rgba(79,172,254,0.08)] px-3 py-1 text-xs text-[var(--blue-2)]">{matchScores[job.id]?.matchScore ?? 0}% match</span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <button type="button" onClick={() => toggleSave(job.id)} className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white-dim)]">
+                        <button type="button" onClick={() => toggleSave(job.id)} className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm font-medium text-[var(--white-dim)]">
                           <BookmarkCheck className="h-4 w-4" />
                           Remove
                         </button>
                         {appliedJobIds.has(job.id) ? (
-                          <Link href="/candidate/applications" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(34,211,123,0.2)] bg-[rgba(34,211,123,0.12)] px-4 py-2 text-sm font-semibold text-[var(--green)]">
+                          <Link href="/candidate/applications" className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,123,0.18)] bg-[rgba(34,211,123,0.12)] px-4 py-2 text-sm font-semibold text-[var(--green)]">
                             <CheckCircle2 className="h-4 w-4" />
                             In pipeline
                           </Link>
                         ) : (
-                          <button type="button" onClick={() => applyToJob(job.id)} disabled={applyingIds.includes(job.id)} className="inline-flex items-center gap-2 rounded-lg bg-[var(--blue-1)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--blue-2)] disabled:opacity-70">
+                          <button type="button" onClick={() => applyToJob(job.id)} disabled={applyingIds.includes(job.id)} className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--blue-1),var(--blue-2))] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70">
                             {applyingIds.includes(job.id) ? 'Applying...' : 'Apply'}
                           </button>
                         )}
@@ -616,18 +611,18 @@ export default function CandidateDashboardPage() {
           </section>
         </div>
 
-        <section id="pipeline" className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
+        <section id="pipeline" className="rounded-[32px] border border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,22,0.74)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] sm:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--green)]">Pipeline</p>
-              <h2 className="mt-2 text-3xl font-semibold text-[var(--white)]">Active applications</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green)]">Pipeline</p>
+              <h2 className="mt-2 font-['Syne'] text-3xl font-bold text-[var(--white)]">Active applications</h2>
             </div>
             <Link href="/candidate/applications" className="text-sm font-medium text-[var(--blue-2)]">Open full pipeline</Link>
           </div>
 
           {applications.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
-              <p className="text-2xl font-semibold text-[var(--white)]">No applications yet</p>
+            <div className="mt-6 rounded-[28px] border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-6 py-10 text-center">
+              <p className="font-['Syne'] text-2xl font-bold text-[var(--white)]">No applications yet</p>
               <p className="mt-2 text-sm text-[var(--white-dim)]">Start applying to roles from the recommendations above and your pipeline will appear here.</p>
             </div>
           ) : (
@@ -636,14 +631,14 @@ export default function CandidateDashboardPage() {
                 const job = jobs.find((item) => item.id === application.jobId);
                 const active = !TERMINAL_STATUSES.includes(application.status);
                 return (
-                  <Link key={application.id} href={`/jobs/${application.jobId}`} className="flex flex-col gap-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 transition hover:border-[rgba(62,121,173,0.22)] sm:flex-row sm:items-center sm:justify-between">
+                  <Link key={application.id} href={`/jobs/${application.jobId}`} className="flex flex-col gap-4 rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 transition hover:border-[rgba(79,172,254,0.18)] sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-[var(--white)]">{job?.title ?? `Job #${application.jobId}`}</p>
+                      <p className="font-['Syne'] text-xl font-bold text-[var(--white)]">{job?.title ?? `Job #${application.jobId}`}</p>
                       <p className="text-sm text-[var(--white-dim)]">{job?.company ?? 'Confidential company'} - Applied {timeAgo(application.createdAt)}</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                      <span className={`rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] ${statusTone(application.status)}`}>{statusLabel(application.status)}</span>
-                      <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${active ? 'bg-[rgba(34,211,123,0.12)] text-[var(--green)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--white-dim)]'}`}>{active ? 'Active' : 'Closed'}</span>
+                      <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(application.status)}`}>{statusLabel(application.status)}</span>
+                      <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-[rgba(34,211,123,0.12)] text-[var(--green)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--white-dim)]'}`}>{active ? 'Active' : 'Closed'}</span>
                     </div>
                   </Link>
                 );
@@ -654,11 +649,11 @@ export default function CandidateDashboardPage() {
       </div>
 
       <aside className="c-right-panel hidden xl:flex">
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,24,0.74)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--blue-2)]">Profile health</p>
+        <section className="rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,24,0.74)] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--blue-2)]">Profile health</p>
           <div className="mt-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-3xl font-semibold text-[var(--white)]">{readiness}% ready</p>
+              <p className="font-['Syne'] text-3xl font-bold text-[var(--white)]">{readiness}% ready</p>
               <p className="mt-2 text-sm leading-6 text-[var(--white-dim)]">Improve profile detail to increase match quality and recruiter confidence.</p>
             </div>
             <div className="flex h-20 w-20 items-center justify-center rounded-full border border-[rgba(79,172,254,0.18)] bg-[rgba(79,172,254,0.08)] font-mono text-sm font-semibold text-[var(--blue-2)]">
@@ -668,27 +663,26 @@ export default function CandidateDashboardPage() {
           <div className="mt-6 space-y-2">
             <SideLink href="/profile/edit" label="Add or refine skills" meta="+20" />
             <SideLink href="/resume" label="Run resume scanner" meta="+35" />
-            <SideLink href="/candidate/messages" label="Open recruiter messages" meta="Chat" />
             <SideLink href={`/profile/${user.id}`} label="Preview public profile" meta="View" />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[rgba(62,121,173,0.2)] bg-[linear-gradient(145deg,rgba(17,28,47,0.76),rgba(11,17,30,0.88))] p-5">
+        <section className="rounded-[28px] border border-[rgba(79,172,254,0.16)] bg-[linear-gradient(145deg,rgba(15,29,69,0.72),rgba(9,16,33,0.84))] p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-[rgba(62,121,173,0.16)] p-2.5 text-[var(--blue-2)]">
+              <div className="rounded-full bg-[rgba(79,172,254,0.14)] p-2.5 text-[var(--blue-2)]">
                 <BrainCircuit className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-lg font-semibold text-[var(--white)]">Jobie AI Insights</p>
-                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Live guidance</p>
+                <p className="font-['Syne'] text-lg font-bold text-[var(--white)]">Jobie AI Insights</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Live guidance</p>
               </div>
             </div>
-            <span className="rounded-lg border border-[rgba(62,121,173,0.22)] bg-[rgba(62,121,173,0.12)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--blue-2)]">Live</span>
+            <span className="rounded-full border border-[rgba(79,172,254,0.18)] bg-[rgba(79,172,254,0.1)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--blue-2)]">Live</span>
           </div>
           <div className="mt-5 space-y-3">
             {(insights.length ? insights : ['Update your profile and interact with more jobs to unlock richer guidance here.']).map((message) => (
-              <div key={message} className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 text-sm leading-6 text-[var(--white-dim)]">
+              <div key={message} className="rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 text-sm leading-6 text-[var(--white-dim)]">
                 {message}
               </div>
             ))}

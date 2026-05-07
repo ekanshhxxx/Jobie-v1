@@ -40,6 +40,85 @@ export interface ParsedResume {
   overallSummary: string;
 }
 
+function uniqueCaseInsensitive(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  values.forEach((value) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(normalized);
+  });
+  return out;
+}
+
+function isAcademicEducationEntry(entry: { degree?: string; institution?: string; year?: string }): boolean {
+  const degree = String(entry.degree || "").toLowerCase();
+  const institution = String(entry.institution || "").toLowerCase();
+  const combined = `${degree} ${institution}`.trim();
+  if (!combined) return false;
+
+  const academicSignals = [
+    "bachelor", "master", "phd", "b.tech", "btech", "be ", "b.e", "m.tech", "mtech",
+    "mba", "bca", "mca", "bsc", "msc", "university", "college", "school", "class x", "class xii",
+    "10th", "12th", "high school", "intermediate", "diploma",
+  ];
+  return academicSignals.some((signal) => combined.includes(signal));
+}
+
+function isLikelyCertificationEntry(entry: { degree?: string; institution?: string; year?: string }): boolean {
+  const degree = String(entry.degree || "").toLowerCase();
+  const institution = String(entry.institution || "").toLowerCase();
+  const combined = `${degree} ${institution}`.trim();
+  if (!combined) return false;
+  if (isAcademicEducationEntry(entry)) return false;
+
+  const certSignals = [
+    "certification", "certificate", "course", "bootcamp", "training",
+    "academy", "workshop", "nanodegree", "specialization",
+  ];
+  return certSignals.some((signal) => combined.includes(signal));
+}
+
+function formatCertificationFromEducation(entry: { degree?: string; institution?: string }): string {
+  const degree = String(entry.degree || "").trim();
+  const institution = String(entry.institution || "").trim();
+  if (degree && institution) return `${degree} - ${institution}`;
+  return degree || institution;
+}
+
+function normalizeParsedResume(parsed: ParsedResume): ParsedResume {
+  const safeEducation = Array.isArray(parsed.education) ? parsed.education : [];
+  const safeCertifications = Array.isArray(parsed.certifications) ? parsed.certifications : [];
+
+  const filteredEducation = safeEducation
+    .map((entry) => ({
+      degree: String(entry?.degree || "").trim(),
+      institution: String(entry?.institution || "").trim(),
+      year: String(entry?.year || "").trim(),
+    }))
+    .filter((entry) => entry.degree || entry.institution || entry.year);
+
+  const movedCertifications = filteredEducation
+    .filter(isLikelyCertificationEntry)
+    .map(formatCertificationFromEducation)
+    .filter(Boolean);
+
+  const normalizedEducation = filteredEducation.filter((entry) => !isLikelyCertificationEntry(entry));
+  const mergedCertifications = uniqueCaseInsensitive([
+    ...safeCertifications.map((cert) => String(cert || "").trim()).filter(Boolean),
+    ...movedCertifications,
+  ]);
+
+  return {
+    ...parsed,
+    education: normalizedEducation,
+    certifications: mergedCertifications,
+  };
+}
+
 // ─── Groq client ──────────────────────────────────────────────────────────────
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY;
@@ -204,9 +283,9 @@ export async function parseResume(resumeText: string): Promise<ParsedResume> {
     if (!raw) throw new Error("Empty response from Groq API");
 
     const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
-    return JSON.parse(cleaned) as ParsedResume;
+    return normalizeParsedResume(JSON.parse(cleaned) as ParsedResume);
   } catch {
-    return parseResumeHeuristically(resumeText);
+    return normalizeParsedResume(parseResumeHeuristically(resumeText));
   }
 }
 
@@ -241,6 +320,7 @@ export interface ResumeReportCard {
   weaknesses: string[];           // top 3 gaps/concerns
   hiringRecommendation: string;   // one paragraph
   suggestedRoles: string[];
+  certifications?: string[];
   generatedAt: string;
 }
 
@@ -313,6 +393,7 @@ Professional Summary: ${parsed.summary}
     const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
     const card = JSON.parse(cleaned) as ResumeReportCard;
     card.weaknesses = sanitizeWeaknesses(card.weaknesses || []);
+    card.certifications = parsed.certifications?.slice(0, 12) || [];
     card.generatedAt = new Date().toISOString();
     return card;
   } catch {
@@ -335,9 +416,8 @@ Professional Summary: ${parsed.summary}
       hiringRecommendation:
         "This candidate shows meaningful technical potential with practical experience and can be considered for roles aligned with the listed stack.",
       suggestedRoles: parsed.suggestedRoles?.length ? parsed.suggestedRoles.slice(0, 3) : ["Software Engineer"],
+      certifications: parsed.certifications?.slice(0, 12) || [],
       generatedAt: new Date().toISOString(),
     };
   }
 }
-
-

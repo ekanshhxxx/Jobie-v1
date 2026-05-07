@@ -19,7 +19,7 @@ export default function RecruiterCopilotPage() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hello! I'm your Jobie AI Copilot. I'm here to help you parse resumes, analyze hiring metrics, and find the perfect candidates for your pipeline. How can we accelerate your hiring today?"
+      content: "Hello! I'm your Jobie AI Copilot. I can help you review applicants, summarize hiring metrics, and track interview stages using your current Jobie data. What should we check first?"
     }
   ]);
   const [input, setInput] = useState('');
@@ -98,11 +98,11 @@ export default function RecruiterCopilotPage() {
               <Sparkles className="w-6 h-6 text-violet-500" />
               AI Copilot Workspace
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your dedicated LLaMA-powered intelligence hub for pipeline management.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">AI assistant for pipeline management and candidate workflow support.</p>
           </div>
           <div className="hidden sm:flex items-center gap-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-3 py-1.5 rounded-full text-xs font-semibold">
             <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-            Live Memory
+            Session Context
           </div>
         </div>
 

@@ -71,6 +71,35 @@ interface DashboardData {
   pipelinePreview: PipelinePreview;
 }
 
+function emptyDashboardData(recruiterId: number): DashboardData {
+  return {
+    recruiterId,
+    summary: {
+      openRoles: 0,
+      draftRoles: 0,
+      pendingApproval: 0,
+      closedRoles: 0,
+      totalApplicants: 0,
+      newApplicants: 0,
+      activePipeline: 0,
+      interviewing: 0,
+      offers: 0,
+      hired: 0,
+    },
+    roles: [],
+    roleHealth: [],
+    recentApplicants: [],
+    pipelinePreview: {
+      applied: 0,
+      shortlisted: 0,
+      interview: 0,
+      offer: 0,
+      hired: 0,
+      rejected: 0,
+    },
+  };
+}
+
 function getStatusBadgeClasses(status: string) {
   const map: Record<string, string> = {
     applied: 'bg-slate-100 text-slate-600 border-slate-200',
@@ -144,34 +173,45 @@ export default function RecruiterDashboard() {
   };
 
   const fetchDashboardData = async () => {
+    let recruiterId = 0;
     try {
       setLoading(true);
       setError(null);
       const user = getUser();
       if (!user) { router.push('/login'); return; }
       if (user.role === 'candidate') { router.push('/candidate/dashboard'); return; }
+      recruiterId = Number(user.id) || 0;
 
-      // Security Pass: Check Onboarding Status
+      // Soft check only: never redirect from dashboard.
       try {
         const profileRes = await api.get(`/api/profile/${user.id}`);
         const profile = profileRes.profile ?? profileRes;
-        if (!profile.companyName || profile.headline === 'PENDING_ADMIN_APPROVAL') {
-          router.push('/recruiter-setup');
-          return;
+        const approvalState = String(profile?.headline ?? '').trim().toUpperCase();
+        if (approvalState === 'PENDING_ADMIN_APPROVAL') {
+          setError('Your recruiter account is pending verification. Showing limited dashboard data for now.');
         }
-      } catch (e) {
-        // No profile exists yet
-        router.push('/recruiter-setup');
-        return;
+      } catch {
+        // Ignore profile read errors in dashboard route.
       }
 
-      const data: DashboardData = await api.get(`/api/dashboard/recruiter/${user.id}`);
-      setDashboardData(data);
+      try {
+        const data: DashboardData = await api.get(`/api/dashboard/recruiter/${user.id}`);
+        setDashboardData(data);
+      } catch (dashErr: unknown) {
+        if (isApiError(dashErr) && dashErr.status === 401) {
+          handleUnauthorized();
+          return;
+        }
+        setDashboardData(emptyDashboardData(recruiterId));
+        setError('Live dashboard data is temporarily unavailable. Showing fallback view.');
+        console.error(dashErr);
+      }
     } catch (err: unknown) {
       if (isApiError(err) && err.status === 401) {
         handleUnauthorized();
         return;
       }
+      setDashboardData(emptyDashboardData(recruiterId));
       setError('Could not load dashboard data. Please check your connection.');
       console.error(err);
     } finally {
@@ -213,33 +253,27 @@ export default function RecruiterDashboard() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <iconify-icon icon="solar:shield-warning-linear" width="40" height="40" class="text-red-400 mx-auto block" />
-          <p className="text-sm text-gray-500">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="px-4 py-2 bg-gray-900 text-white text-sm rounded-xl hover:bg-gray-800 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-[#0b0f1a] p-4 sm:p-8 transition-colors">
       <div className="max-w-[1400px] mx-auto space-y-8">
+        {error && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200 flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              onClick={fetchDashboardData}
+              className="px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-100 hover:bg-amber-500/30 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Page Header */}
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here's your hiring pipeline overview for today.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here&apos;s your hiring pipeline overview for today.</p>
             </div>
             <div className="flex items-center gap-2">
               <button

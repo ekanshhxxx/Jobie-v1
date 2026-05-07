@@ -14,6 +14,7 @@ interface Meeting {
   duration: number;
   status: string;
   streamCallId: string;
+  meetingUrl?: string;
   recruiter: { id: number; name: string; email: string };
   job: { id: number; title: string; company: string };
 }
@@ -59,7 +60,11 @@ export default function CandidateInterviewsPage() {
       ) : (
         <div className="space-y-4">
           {meetings.map((meeting) => {
-            const isPast = new Date(meeting.scheduledAt).getTime() < new Date().getTime();
+            const startAt = new Date(meeting.scheduledAt).getTime();
+            const endAt = startAt + Number(meeting.duration || 30) * 60 * 1000;
+            const status = String(meeting.status || '').toLowerCase();
+            const isPast = !Number.isFinite(endAt) ? false : endAt <= Date.now();
+            const isCompleted = ['completed', 'cancelled', 'no_show'].includes(status) || isPast;
             
             return (
               <div key={meeting.id} className={`p-6 bg-white border rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition hover:shadow-md ${isPast ? 'border-gray-200' : 'border-indigo-100'} ring-1 ring-black/5`}>
@@ -86,14 +91,21 @@ export default function CandidateInterviewsPage() {
                   </div>
                 </div>
 
-                {!isPast && (
+                {!isCompleted && (
                   <div className="shrink-0 flex items-center">
                     <button
-                      onClick={() => router.push(`/meeting/${meeting.streamCallId}`)}
+                      onClick={() => {
+                        const joinUrl = meeting.meetingUrl || `/meeting/${meeting.streamCallId}`;
+                        if (joinUrl.startsWith('http')) {
+                          window.open(joinUrl, '_blank', 'noopener,noreferrer');
+                          return;
+                        }
+                        router.push(joinUrl);
+                      }}
                       className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-indigo-200 hover:-translate-y-0.5 flex items-center gap-2"
                     >
                       <Video className="w-5 h-5" />
-                      Join Video Call
+                      Join Google Meet
                     </button>
                   </div>
                 )}

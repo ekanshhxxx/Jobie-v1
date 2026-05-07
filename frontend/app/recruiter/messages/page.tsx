@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageSquare, Sparkles, UserRound, Briefcase } from 'lucide-react';
-import { StreamChat } from 'stream-chat';
+import { StreamChat, type Channel as StreamChannel, type ChannelFilters, type ChannelSort } from 'stream-chat';
 import {
   Chat,
   Channel,
@@ -18,6 +18,7 @@ import {
 import 'stream-chat-react/dist/css/v2/index.css';
 import { api, clearAuth, getUser, isApiError } from '../../lib/api';
 import { useToast } from '../../components/ToastProvider';
+import { useSearchParams } from 'next/navigation';
 
 type Contact = {
   candidateId: number;
@@ -31,19 +32,23 @@ type Contact = {
 
 export default function RecruiterMessagesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [chatClient, setChatClient] = useState<StreamChat | null>(null);
   const [streamUserId, setStreamUserId] = useState<string>('');
-  const [activeChannel, setActiveChannel] = useState<any>(null);
+  const [activeChannel, setActiveChannel] = useState<StreamChannel | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingContact, setOpeningContact] = useState<string | null>(null);
+  const [autoOpenAttempted, setAutoOpenAttempted] = useState(false);
+  const [streamToken, setStreamToken] = useState<string>('');
 
   const currentUser = getUser();
 
   useEffect(() => {
     let mounted = true;
+    let bootClient: StreamChat | null = null;
 
     const boot = async () => {
       if (!currentUser) {
@@ -62,14 +67,25 @@ export default function RecruiterMessagesPage() {
           api.get('/api/chat/stream/contacts'),
         ]);
 
-        const client = StreamChat.getInstance(authRes.apiKey);
+        const authPayload = (authRes ?? {}) as {
+          apiKey?: string;
+          streamUserId?: string;
+          token?: string;
+        };
+        const contactsPayload = (contactsRes ?? {}) as { contacts?: Contact[] };
+        if (!authPayload.apiKey || !authPayload.streamUserId || !authPayload.token) {
+          throw new Error('Missing Stream auth configuration from server response.');
+        }
+
+        const client = StreamChat.getInstance(authPayload.apiKey);
+        bootClient = client;
         await client.connectUser(
           {
-            id: authRes.streamUserId,
+            id: authPayload.streamUserId,
             name: currentUser.name,
             image: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=111827&color=fff`,
           },
-          authRes.token
+          authPayload.token
         );
 
         if (!mounted) {
@@ -77,8 +93,9 @@ export default function RecruiterMessagesPage() {
           return;
         }
 
-        setStreamUserId(authRes.streamUserId);
-        setContacts(contactsRes.contacts ?? []);
+        setStreamUserId(authPayload.streamUserId);
+  setStreamToken(authPayload.token);
+        setContacts(contactsPayload.contacts ?? []);
         setChatClient(client);
       } catch (error) {
         if (isApiError(error) && error.status === 401) {
@@ -100,56 +117,147 @@ export default function RecruiterMessagesPage() {
 
     return () => {
       mounted = false;
-      if (chatClient) {
-        chatClient.disconnectUser();
+      if (bootClient) {
+        void bootClient.disconnectUser();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filters = useMemo(
+  const filters = useMemo<ChannelFilters>(
     () => ({
       type: 'messaging',
-      members: { $in: streamUserId ? [streamUserId] : [] },
+      members: { $in: streamUserId ? [streamUserId] : ['no-user'] },
     }),
     [streamUserId]
   );
 
-  const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
+  const sort = useMemo<ChannelSort>(() => ({ last_message_at: -1 }), []);
+
+  const ensureConnectedClient = async () => {
+    if (!chatClient) {
+      throw new Error('Messaging client is not initialized yet.');
+    }
+
+    if (chatClient.userID === streamUserId) {
+      return chatClient;
+    }
+
+    if (chatClient.userID) {
+      await chatClient.disconnectUser();
+    }
+
+    if (!streamUserId || !streamToken) {
+      throw new Error('Messaging authentication is unavailable. Please refresh this page.');
+    }
+
+    try {
+      await chatClient.connectUser(
+        {
+          id: streamUserId,
+          name: currentUser?.name || 'Recruiter',
+          image: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'Recruiter')}&background=111827&color=fff`,
+        },
+        streamToken
+      );
+      return chatClient;
+    } catch {
+      const authRes = await api.get('/api/chat/stream/auth');
+      const authPayload = (authRes ?? {}) as {
+        streamUserId?: string;
+        token?: string;
+      };
+      if (!authPayload.streamUserId || !authPayload.token) {
+        throw new Error('Could not refresh messaging credentials.');
+      }
+
+      setStreamUserId(authPayload.streamUserId);
+      setStreamToken(authPayload.token);
+
+      await chatClient.connectUser(
+        {
+          id: authPayload.streamUserId,
+          name: currentUser?.name || 'Recruiter',
+          image: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'Recruiter')}&background=111827&color=fff`,
+        },
+        authPayload.token
+      );
+
+      return chatClient;
+    }
+  };
 
   const openContactChannel = async (contact: Contact) => {
     if (!chatClient) return;
     try {
       setOpeningContact(`${contact.candidateId}:${contact.jobId}`);
+      const connectedClient = await ensureConnectedClient();
       const channelRes = await api.post('/api/chat/stream/channel', {
         jobId: contact.jobId,
         candidateId: contact.candidateId,
       });
+      const channelPayload = (channelRes ?? {}) as { channelId?: string };
+      if (!channelPayload.channelId) {
+        throw new Error('Chat channel could not be opened.');
+      }
 
-      const channel = chatClient.channel('messaging', channelRes.channelId);
+      const channel = connectedClient.channel('messaging', channelPayload.channelId);
       await channel.watch();
       setActiveChannel(channel);
     } catch (error) {
+      const fallbackMessage = error instanceof Error && error.message ? error.message : 'Please try again.';
       toast({
         type: 'error',
         title: 'Could not open channel',
-        message: isApiError(error) ? error.message : 'Please try again.',
+        message: isApiError(error) ? error.message : fallbackMessage,
       });
     } finally {
       setOpeningContact(null);
     }
   };
 
+  useEffect(() => {
+    if (loading || !chatClient || autoOpenAttempted) return;
+
+    const candidateId = Number(searchParams.get('candidateId'));
+    const jobId = Number(searchParams.get('jobId'));
+
+    if (!Number.isFinite(candidateId) || !Number.isFinite(jobId)) {
+      setAutoOpenAttempted(true);
+      return;
+    }
+
+    const contact = contacts.find((item) => item.candidateId === candidateId && item.jobId === jobId);
+    if (contact) {
+      void openContactChannel(contact);
+      setAutoOpenAttempted(true);
+      return;
+    }
+
+    const fallbackContact: Contact = {
+      candidateId,
+      jobId,
+      candidateName: 'Candidate',
+      candidateEmail: '',
+      jobTitle: 'Selected Role',
+      company: '',
+      lastStatus: 'applied',
+    };
+    void openContactChannel(fallbackContact);
+    setAutoOpenAttempted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, chatClient, contacts, searchParams, autoOpenAttempted]);
+
   if (loading || !chatClient) {
     return (
-      <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center text-sm text-[var(--t2)]">
+      <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center text-sm text-(--t2)">
         Initializing live messaging...
       </div>
     );
   }
 
   return (
-    <main className="r-main !p-4">
+    <main className="r-main p-4!">
       <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4 h-[calc(100vh-120px)]">
         <aside className="rounded-3xl border border-white/15 bg-[#0f172a]/70 backdrop-blur-xl p-4 overflow-y-auto">
           <div className="flex items-center gap-2 mb-4">
@@ -170,7 +278,7 @@ export default function RecruiterMessagesPage() {
                 <button
                   key={key}
                   onClick={() => openContactChannel(contact)}
-                  className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] px-3 py-3 transition"
+                  className="w-full text-left rounded-2xl border border-white/10 bg-white/3 hover:bg-white/8 px-3 py-3 transition"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-100 truncate">{contact.candidateName}</div>
@@ -195,24 +303,33 @@ export default function RecruiterMessagesPage() {
             <div className="h-full grid grid-cols-1 md:grid-cols-[280px_1fr]">
               <div className="border-r border-white/10">
                 <ChannelList
-                  filters={filters as any}
-                  sort={sort as any}
+                  filters={filters}
+                  sort={sort}
                   options={{ state: true, watch: true, limit: 30 }}
                   Preview={(props) => (
                     (() => {
-                      const channelData = (props.channel?.data ?? {}) as any;
+                      const channelData = (props.channel?.data ?? {}) as {
+                        name?: string;
+                        jobId?: number;
+                        custom?: {
+                          name?: string;
+                          jobId?: number;
+                        };
+                      };
+                      const displayName = channelData.name || channelData.custom?.name || props.channel?.id;
+                      const displayJobId = channelData.jobId || channelData.custom?.jobId;
                       return (
                         <button
                           onClick={() => setActiveChannel(props.channel)}
-                          className={`w-full text-left px-3 py-3 border-b border-white/10 hover:bg-white/[0.06] transition ${
-                            props.activeChannel?.id === props.channel?.id ? 'bg-white/[0.08]' : ''
+                          className={`w-full text-left px-3 py-3 border-b border-white/10 hover:bg-white/6 transition ${
+                            props.activeChannel?.id === props.channel?.id ? 'bg-white/8' : ''
                           }`}
                         >
                           <div className="text-sm font-medium text-slate-100 truncate">
-                            {channelData.name || props.channel?.id}
+                            {displayName}
                           </div>
                           <div className="text-[11px] text-slate-400 mt-1 truncate">
-                            {channelData.jobId ? `Job #${channelData.jobId}` : 'Direct thread'}
+                            {displayJobId ? `Job #${displayJobId}` : 'Direct thread'}
                           </div>
                         </button>
                       );

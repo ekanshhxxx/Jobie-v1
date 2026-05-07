@@ -106,9 +106,29 @@ export default function RegisterPage() {
       router.push('/admin');
       return;
     }
-    if (u.role !== 'candidate') {
-      router.push('/recruiter/dashboard');
-      return;
+    if (u.role === 'recruiter') {
+      try {
+        const profileData = await api.get(`/api/profile/${u.id}`);
+        const profile = profileData?.profile ?? profileData;
+        const approvalState = String(profile?.headline ?? '').trim().toUpperCase();
+        if (approvalState === 'PENDING_ADMIN_APPROVAL') {
+          router.push('/recruiter-setup');
+          return;
+        }
+        if (approvalState === 'VERIFIED') {
+          router.push('/recruiter/dashboard');
+          return;
+        }
+        if (!profile?.companyName) {
+          router.push('/recruiter-setup');
+          return;
+        }
+        router.push('/recruiter/dashboard');
+        return;
+      } catch {
+        router.push('/recruiter-setup');
+        return;
+      }
     }
     try {
       const profileData = await api.get(`/api/profile/${u.id}`);

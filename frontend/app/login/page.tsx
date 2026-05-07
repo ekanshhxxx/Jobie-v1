@@ -112,16 +112,27 @@ export default function LoginPage() {
     }
     if (u.role === 'recruiter') {
       try {
-        const { profile } = await api.get(`/api/profile/${u.id}`);
-        if (!profile || !profile.companyName || profile.headline === "PENDING_ADMIN_APPROVAL") {
+        const profileData = await api.get(`/api/profile/${u.id}`);
+        const profile = profileData?.profile ?? profileData;
+        const approvalState = String(profile?.headline ?? '').trim().toUpperCase();
+        if (approvalState === 'PENDING_ADMIN_APPROVAL') {
           router.push('/recruiter-setup');
-        } else {
-          router.push('/recruiter/dashboard');
+          return;
         }
+        if (approvalState === 'VERIFIED') {
+          router.push('/recruiter/dashboard');
+          return;
+        }
+        if (!profile?.companyName) {
+          router.push('/recruiter-setup');
+          return;
+        }
+        router.push('/recruiter/dashboard');
+        return;
       } catch {
         router.push('/recruiter-setup');
+        return;
       }
-      return;
     }
     try {
       const profileData = await api.get(`/api/profile/${u.id}`);

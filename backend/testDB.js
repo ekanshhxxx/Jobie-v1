@@ -9,7 +9,7 @@ async function testConnection() {
       const connection = await mysql.createConnection({
         host: '127.0.0.1',
         user: 'root',
-        password: pwd,
+        password: Amrit16947,
         database: 'jobie'
       });
 

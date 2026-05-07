@@ -123,10 +123,45 @@ export const parseAndSaveToProfile = async (req: Request, res: Response) => {
       ? parsed.experience
       : currentExperience;
 
-    const currentEducation: any[] = (profile as any).education || [];
-    const mergedEducation = parsed.education.length > currentEducation.length
-      ? parsed.education
-      : currentEducation;
+    const isAcademicEducationEntry = (entry: { degree?: string; institution?: string; school?: string; year?: string; years?: string }) => {
+      const degree = String(entry?.degree || "").toLowerCase();
+      const institution = String(entry?.institution || entry?.school || "").toLowerCase();
+      const combined = `${degree} ${institution}`.trim();
+      if (!combined) return false;
+      const academicSignals = [
+        "bachelor", "master", "phd", "b.tech", "btech", "be ", "b.e", "m.tech", "mtech",
+        "mba", "bca", "mca", "bsc", "msc", "university", "college", "school", "class x", "class xii",
+        "10th", "12th", "high school", "intermediate", "diploma",
+      ];
+      return academicSignals.some((signal) => combined.includes(signal));
+    };
+
+    const isLikelyCertificationEducation = (entry: { degree?: string; institution?: string; school?: string; year?: string; years?: string }) => {
+      const degree = String(entry?.degree || "").toLowerCase();
+      const institution = String(entry?.institution || entry?.school || "").toLowerCase();
+      const combined = `${degree} ${institution}`.trim();
+      if (!combined) return false;
+      if (isAcademicEducationEntry(entry)) return false;
+      const certSignals = [
+        "certification", "certificate", "course", "bootcamp", "training",
+        "academy", "workshop", "nanodegree", "specialization",
+      ];
+      return certSignals.some((signal) => combined.includes(signal));
+    };
+
+    const sanitizeEducation = (list: any[]) =>
+      (Array.isArray(list) ? list : [])
+        .map((entry) => ({
+          degree: String(entry?.degree || "").trim(),
+          institution: String(entry?.institution || entry?.school || "").trim(),
+          year: String(entry?.year || entry?.years || "").trim(),
+        }))
+        .filter((entry) => entry.degree || entry.institution || entry.year)
+        .filter((entry) => !isLikelyCertificationEducation(entry));
+
+    const currentEducation: any[] = sanitizeEducation((profile as any).education || []);
+    const parsedEducation: any[] = sanitizeEducation(parsed.education || []);
+    const mergedEducation = parsedEducation.length > 0 ? parsedEducation : currentEducation;
 
     const currentProjects: any[] = (profile as any).projects || [];
     const mergedProjects = [...currentProjects];

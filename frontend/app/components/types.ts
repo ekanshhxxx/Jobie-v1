@@ -21,7 +21,7 @@ export type GitHubDeepScan = {
 
 export type ResumeReportCard = {
   overallScore: number; strengths: string[]; weaknesses: string[];
-  hiringRecommendation: string; suggestedRoles: string[]; generatedAt: string;
+  hiringRecommendation: string; suggestedRoles: string[]; certifications?: string[]; generatedAt: string;
 };
 
 export type Profile = {

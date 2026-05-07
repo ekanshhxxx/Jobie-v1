@@ -62,24 +62,22 @@ export const verifyAndSave = async (req: Request, res: Response) => {
     }
 
     const linkedGithubUid = typeof (user as any).githubUid === "string"
-      ? String((user as any).githubUid)
+      ? String((user as any).githubUid).trim()
       : "";
-    if (!linkedGithubUid) {
-      return res.status(403).json({
-        message: "For security, connect this account with GitHub login first before running Deep Scan.",
-        code: "GITHUB_ACCOUNT_NOT_LINKED",
-      });
-    }
 
-    const identity = await resolveGitHubIdentity(githubUsername);
-    if (identity.id !== linkedGithubUid) {
-      return res.status(403).json({
-        message: "This username does not match your connected GitHub account.",
-        code: "GITHUB_USERNAME_MISMATCH",
-        expectedGithubUid: linkedGithubUid,
-        scannedGithubUid: identity.id,
-        scannedUsername: identity.login,
-      });
+    // Enforce identity only when account is explicitly linked via GitHub OAuth.
+    // Legacy/email-password accounts can still run deep scan by username.
+    if (linkedGithubUid) {
+      const identity = await resolveGitHubIdentity(githubUsername);
+      if (identity.id !== linkedGithubUid) {
+        return res.status(403).json({
+          message: "This username does not match your connected GitHub account.",
+          code: "GITHUB_USERNAME_MISMATCH",
+          expectedGithubUid: linkedGithubUid,
+          scannedGithubUid: identity.id,
+          scannedUsername: identity.login,
+        });
+      }
     }
 
     // Full deep scan (skills + bio + pinned repos + lang breakdown + commits + AI narrative)

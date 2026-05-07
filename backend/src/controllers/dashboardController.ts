@@ -5,6 +5,51 @@ import Profile from "../models/Profile";
 import User from "../models/User";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { calculateMatchScore } from "../services/matchService";
+import sequelize from "../config/database";
+
+let jobColumnCache: Set<string> | null = null;
+
+async function getJobColumns(): Promise<Set<string>> {
+  if (jobColumnCache) return jobColumnCache;
+
+  const tableNameRaw = (Job as any).getTableName?.() || "Jobs";
+  const tableName = typeof tableNameRaw === "string" ? tableNameRaw : tableNameRaw?.tableName || "Jobs";
+
+  try {
+    const description = await sequelize.getQueryInterface().describeTable(tableName);
+    jobColumnCache = new Set(Object.keys(description));
+    return jobColumnCache;
+  } catch {
+    const description = await sequelize.getQueryInterface().describeTable(String(tableName).toLowerCase());
+    jobColumnCache = new Set(Object.keys(description));
+    return jobColumnCache;
+  }
+}
+
+function getSafeJobAttributes(columns: Set<string>) {
+  const candidates = [
+    "id",
+    "title",
+    "company",
+    "location",
+    "salary",
+    "description",
+    "requiredSkills",
+    "skills",
+    "techStack",
+    "techSkills",
+    "experienceLevel",
+    "experience",
+    "lifecycleStatus",
+    "approvalStatus",
+    "status",
+    "recruiterId",
+    "createdAt",
+    "updatedAt",
+  ];
+
+  return candidates.filter((column) => columns.has(column));
+}
 
 function parseStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -33,6 +78,12 @@ function parseStringArray(value: unknown): string[] {
 }
 
 function normalizeJob(job: any, applicantCount: number, newApplicantCount: number, lastActivityAt: string | null) {
+  const legacyStatus = String(job.status || "").toLowerCase();
+  const lifecycleFallback =
+    legacyStatus === "pending" ? "draft" : legacyStatus === "rejected" ? "closed" : "published";
+  const approvalFallback =
+    legacyStatus === "pending" ? "pending_review" : legacyStatus === "rejected" ? "rejected" : "approved";
+
   return {
     id: job.id,
     title: job.title,
@@ -40,11 +91,11 @@ function normalizeJob(job: any, applicantCount: number, newApplicantCount: numbe
     location: job.location || "",
     salary: job.salary || "",
     description: job.description || "",
-    requiredSkills: parseStringArray(job.requiredSkills),
-    techStack: parseStringArray(job.techStack),
-    experienceLevel: job.experienceLevel || "mid",
-    lifecycleStatus: job.lifecycleStatus || (job.status === "approved" ? "published" : "draft"),
-    approvalStatus: job.approvalStatus || (job.status === "rejected" ? "rejected" : "approved"),
+    requiredSkills: parseStringArray(job.requiredSkills ?? job.skills),
+    techStack: parseStringArray(job.techStack ?? job.techSkills),
+    experienceLevel: job.experienceLevel || job.experience || "mid",
+    lifecycleStatus: job.lifecycleStatus || lifecycleFallback,
+    approvalStatus: job.approvalStatus || approvalFallback,
     status: job.approvalStatus || job.status || "approved",
     recruiterId: job.recruiterId ?? null,
     applicantCount,
@@ -68,8 +119,12 @@ export const getRecruiterDashboard = async (req: AuthRequest, res: Response) => 
       return res.status(403).json({ message: "Access denied" });
     }
 
+    const jobColumns = await getJobColumns();
+    const safeJobAttributes = getSafeJobAttributes(jobColumns);
+
     const jobs = await Job.findAll({
       where: { recruiterId },
+      attributes: safeJobAttributes,
       order: [["updatedAt", "DESC"]],
       raw: true,
     });
@@ -80,19 +135,7 @@ export const getRecruiterDashboard = async (req: AuthRequest, res: Response) => 
           model: Job,
           required: true,
           where: { recruiterId },
-          attributes: [
-            "id",
-            "title",
-            "company",
-            "location",
-            "salary",
-            "requiredSkills",
-            "techStack",
-            "experienceLevel",
-            "lifecycleStatus",
-            "approvalStatus",
-            "status",
-          ],
+          attributes: safeJobAttributes,
         },
         {
           model: User,

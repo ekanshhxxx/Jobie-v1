@@ -3,7 +3,9 @@ import { Op } from "sequelize";
 import jwt from "jsonwebtoken";
 import Job from "../models/Job";
 import Application from "../models/Application";
+import User from "../models/User";
 import { AuthRequest } from "../middleware/authMiddleware";
+import sequelize from "../config/database";
 
 const JWT_SECRET = process.env.JWT_SECRET || "jobie_secret";
 
@@ -12,6 +14,7 @@ type ApprovalStatus = "approved" | "pending_review" | "rejected";
 
 const VALID_LIFECYCLE: LifecycleStatus[] = ["draft", "published", "closed"];
 const VALID_APPROVAL: ApprovalStatus[] = ["approved", "pending_review", "rejected"];
+let jobColumnCache: Set<string> | null = null;
 
 function parseStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -37,6 +40,37 @@ function parseStringArray(value: unknown): string[] {
   }
 
   return [];
+}
+
+async function getJobColumns(): Promise<Set<string>> {
+  if (jobColumnCache) return jobColumnCache;
+
+  const tableNameRaw = (Job as any).getTableName?.() || "Jobs";
+  const tableName = typeof tableNameRaw === "string" ? tableNameRaw : tableNameRaw?.tableName || "Jobs";
+
+  try {
+    const description = await sequelize.getQueryInterface().describeTable(tableName);
+    jobColumnCache = new Set(Object.keys(description));
+    return jobColumnCache;
+  } catch {
+    const description = await sequelize.getQueryInterface().describeTable(String(tableName).toLowerCase());
+    jobColumnCache = new Set(Object.keys(description));
+    return jobColumnCache;
+  }
+}
+
+function toLegacyStatus(lifecycleStatus: LifecycleStatus, approvalStatus: ApprovalStatus): "pending" | "approved" | "rejected" {
+  if (approvalStatus === "rejected") return "rejected";
+  if (approvalStatus === "pending_review" || lifecycleStatus === "draft") return "pending";
+  return "approved";
+}
+
+function filterToExistingColumns(payload: Record<string, unknown>, columns: Set<string>) {
+  const next: Record<string, unknown> = {};
+  Object.entries(payload).forEach(([key, value]) => {
+    if (columns.has(key)) next[key] = value;
+  });
+  return next;
 }
 
 function pickLifecycle(input: unknown, fallback: LifecycleStatus): LifecycleStatus {
@@ -101,10 +135,17 @@ async function buildJobMetrics(jobIds: number[]) {
 
 function normalizeJob(job: any, metrics?: { applicantCount: number; newApplicantCount: number; lastApplicationAt: string | null }) {
   const plain = typeof job.get === "function" ? job.get({ plain: true }) : job;
-  const requiredSkills = parseStringArray(plain.requiredSkills);
-  const techStack = parseStringArray(plain.techStack);
+  const requiredSkills = parseStringArray(plain.requiredSkills ?? plain.skills);
+  const techStack = parseStringArray(plain.techStack ?? plain.techSkills);
+
+  const legacyStatus = String(plain.status || "").toLowerCase();
+  const lifecycleFallback: LifecycleStatus =
+    legacyStatus === "pending" ? "draft" : legacyStatus === "rejected" ? "closed" : "published";
+  const approvalFallback: ApprovalStatus =
+    legacyStatus === "pending" ? "pending_review" : legacyStatus === "rejected" ? "rejected" : "approved";
+
   const lifecycleStatus = pickLifecycle(plain.lifecycleStatus, plain.status === "approved" ? "published" : "draft");
-  const approvalStatus = pickApproval(plain.approvalStatus, plain.status === "rejected" ? "rejected" : "approved");
+  const approvalStatus = pickApproval(plain.approvalStatus, approvalFallback);
   const applicantCount = metrics?.applicantCount ?? plain.applicantCount ?? 0;
   const newApplicantCount = metrics?.newApplicantCount ?? plain.newApplicantCount ?? 0;
   const updatedAt = plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null;
@@ -124,10 +165,10 @@ function normalizeJob(job: any, metrics?: { applicantCount: number; newApplicant
     description: plain.description || "",
     requiredSkills,
     techStack,
-    experienceLevel: plain.experienceLevel || "mid",
-    lifecycleStatus,
+    experienceLevel: plain.experienceLevel || plain.experience || "mid",
+    lifecycleStatus: plain.lifecycleStatus ? lifecycleStatus : lifecycleFallback,
     approvalStatus,
-    status: approvalStatus,
+    status: plain.status || toLegacyStatus(lifecycleStatus, approvalStatus),
     recruiterId: plain.recruiterId ?? null,
     applicantCount,
     newApplicantCount,
@@ -202,6 +243,14 @@ export const createJob = async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     const ownerId = requester.role === "admin" && recruiterId ? Number(recruiterId) : requester.id;
+    const owner = await User.findByPk(ownerId);
+    if (!owner) {
+      return res.status(401).json({ message: "Session account no longer exists. Please sign in again." });
+    }
+    if (!["recruiter", "admin"].includes(String((owner as any).role))) {
+      return res.status(403).json({ message: "Only recruiter/admin accounts can create jobs." });
+    }
+
     const nextLifecycle = pickLifecycle(
       lifecycleStatus,
       intent === "publish" || status === "approved" ? "published" : "draft"
@@ -210,25 +259,44 @@ export const createJob = async (req: AuthRequest, res: Response) => {
       approvalStatus,
       status === "rejected" ? "rejected" : "approved"
     );
+    const nextLegacyStatus = toLegacyStatus(nextLifecycle, nextApproval);
+    const columns = await getJobColumns();
 
-    const job = await Job.create({
+    const createPayload = filterToExistingColumns({
       title,
       company,
       location,
       salary,
       description,
       requiredSkills: parseStringArray(requiredSkills),
+      skills: parseStringArray(requiredSkills),
       techStack: parseStringArray(techStack),
+      techSkills: parseStringArray(techStack),
       experienceLevel: experienceLevel || "mid",
+      experience: experienceLevel || "mid",
       lifecycleStatus: nextLifecycle,
       approvalStatus: nextApproval,
       recruiterId: ownerId,
-      status: nextApproval,
-    });
+      status: nextLegacyStatus,
+    }, columns);
+
+    const job = await Job.create(createPayload as any);
 
     res.status(201).json(normalizeJob(job));
-  } catch (error) {
-    res.status(500).json({ message: "Error creating job", error });
+  } catch (error: any) {
+    if (error?.name === "SequelizeForeignKeyConstraintError") {
+      return res.status(400).json({
+        message: "Invalid recruiter account for this job. Please sign out and sign in again.",
+        detail: error?.message || String(error),
+      });
+    }
+    if (error?.name === "SequelizeValidationError") {
+      return res.status(400).json({
+        message: "Job payload validation failed.",
+        detail: error?.message || String(error),
+      });
+    }
+    res.status(500).json({ message: "Error creating job", detail: error?.message || String(error) });
   }
 };
 
@@ -257,28 +325,49 @@ export const updateJob = async (req: AuthRequest, res: Response) => {
     if (req.body.location !== undefined) payload.location = req.body.location;
     if (req.body.salary !== undefined) payload.salary = req.body.salary;
     if (req.body.description !== undefined) payload.description = req.body.description;
-    if (req.body.experienceLevel !== undefined) payload.experienceLevel = req.body.experienceLevel;
-    if (req.body.requiredSkills !== undefined) payload.requiredSkills = parseStringArray(req.body.requiredSkills);
-    if (req.body.techStack !== undefined) payload.techStack = parseStringArray(req.body.techStack);
+    if (req.body.experienceLevel !== undefined) {
+      payload.experienceLevel = req.body.experienceLevel;
+      payload.experience = req.body.experienceLevel;
+    }
+    if (req.body.requiredSkills !== undefined) {
+      const parsed = parseStringArray(req.body.requiredSkills);
+      payload.requiredSkills = parsed;
+      payload.skills = parsed;
+    }
+    if (req.body.techStack !== undefined) {
+      const parsed = parseStringArray(req.body.techStack);
+      payload.techStack = parsed;
+      payload.techSkills = parsed;
+    }
+
+    let nextLifecycle = pickLifecycle((job as any).lifecycleStatus, (job as any).status === "approved" ? "published" : "draft");
+    let nextApproval = pickApproval((job as any).approvalStatus, (job as any).status === "rejected" ? "rejected" : "approved");
+
     if (req.body.lifecycleStatus !== undefined) {
-      payload.lifecycleStatus = pickLifecycle(req.body.lifecycleStatus, (job as any).lifecycleStatus || "published");
+      nextLifecycle = pickLifecycle(req.body.lifecycleStatus, nextLifecycle);
+      payload.lifecycleStatus = nextLifecycle;
     } else if (req.body.intent === "publish") {
+      nextLifecycle = "published";
       payload.lifecycleStatus = "published";
     } else if (req.body.intent === "draft") {
+      nextLifecycle = "draft";
       payload.lifecycleStatus = "draft";
     }
     if (req.body.approvalStatus !== undefined || req.body.status !== undefined) {
-      const nextApproval = pickApproval(req.body.approvalStatus ?? req.body.status, (job as any).approvalStatus || "approved");
+      nextApproval = pickApproval(req.body.approvalStatus ?? req.body.status, nextApproval);
       payload.approvalStatus = nextApproval;
-      payload.status = nextApproval;
     }
+    payload.status = toLegacyStatus(nextLifecycle, nextApproval);
 
-    await (job as any).update(payload);
+    const columns = await getJobColumns();
+    const updatePayload = filterToExistingColumns(payload, columns);
+
+    await (job as any).update(updatePayload);
 
     const metrics = await buildJobMetrics([jobId]);
     res.status(200).json(normalizeJob(job, metrics.get(jobId)));
-  } catch (error) {
-    res.status(500).json({ message: "Error updating job", error });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error updating job", detail: error?.message || String(error) });
   }
 };
 

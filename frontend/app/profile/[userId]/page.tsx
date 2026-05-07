@@ -8,7 +8,7 @@ import ProfileHeader from '../../components/ProfileHeader';
 import SkillGraph from '../../components/SkillGraph';
 import GitHubDeepCard from '../../components/GitHubDeepCard';
 import ResumeReportCard from '../../components/ResumeReportCard';
-import { Briefcase, GraduationCap, Code, Share2, FileText, Edit3, Star, ArrowRight } from 'lucide-react';
+import { Briefcase, GraduationCap, Code, Share2, FileText, Edit3, Star, ArrowRight, Award } from 'lucide-react';
 
 export default function PublicProfilePage() {
   const router = useRouter();
@@ -65,6 +65,9 @@ export default function PublicProfilePage() {
     ? (profile.resumeUrl.startsWith('http') ? profile.resumeUrl : `${API_BASE_URL}${profile.resumeUrl}`)
     : '';
   const canEdit = viewer?.id === user.id;
+  const certifications = Array.from(
+    new Set((profile.resumeReport?.certifications || []).map((item) => String(item).trim()).filter(Boolean))
+  );
   const openResume = () => {
     if (!resumeHref) return;
     window.open(resumeHref, '_blank', 'noopener,noreferrer');
@@ -149,6 +152,19 @@ export default function PublicProfilePage() {
                 ))}
               </div>
             </div>
+
+            {certifications.length > 0 && (
+              <div className="bg-white dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3"><Award size={22} /> Certifications</h3>
+                <div className="flex flex-wrap gap-2">
+                  {certifications.map((cert) => (
+                    <span key={cert} className="rounded-full border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-sm text-amber-800 dark:text-amber-200">
+                      {cert}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="bg-white dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3"><Code size={22} /> Projects</h3>

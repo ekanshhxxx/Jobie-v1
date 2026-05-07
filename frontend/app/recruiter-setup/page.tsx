@@ -33,15 +33,19 @@ export default function RecruiterOnboarding() {
 
   const checkProfile = async (id: number) => {
     try {
-      const { profile } = await api.get(`/api/profile/${id}`);
-      if (profile && profile.companyName) {
-        if (profile.headline === "PENDING_ADMIN_APPROVAL") {
-          setStep(4);
-        } else if (profile.headline === "VERIFIED") {
-          router.push('/recruiter/dashboard');
-        } else {
-          router.push('/recruiter/dashboard');
-        }
+      const profileRes = await api.get(`/api/profile/${id}`);
+      const profile = profileRes?.profile ?? profileRes;
+      const approvalState = String(profile?.headline ?? '').trim().toUpperCase();
+      if (approvalState === "PENDING_ADMIN_APPROVAL") {
+        setStep(4);
+        return;
+      }
+      if (approvalState === "VERIFIED") {
+        router.push('/recruiter/dashboard');
+        return;
+      }
+      if (profile?.companyName) {
+        router.push('/recruiter/dashboard');
       }
     } catch (e) {
       // Profile doesn't exist yet, proceed with onboarding

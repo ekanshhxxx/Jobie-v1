@@ -14,10 +14,12 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Moon,
   Settings2,
   Sun,
   UserCircle2,
+  Video,
   X,
 } from 'lucide-react';
 import { clearAuth, getUser } from '../lib/api';
@@ -93,6 +95,18 @@ export default function CandidateLayout({ children }: { children: React.ReactNod
       active: (value) => value.startsWith('/candidate/applications'),
     },
     {
+      href: '/candidate/interviews',
+      label: 'Interviews',
+      icon: <Video className="h-4 w-4" />,
+      active: (value) => value.startsWith('/candidate/interviews') || value.startsWith('/meeting/'),
+    },
+    {
+      href: '/candidate/messages',
+      label: 'Messages',
+      icon: <MessageSquare className="h-4 w-4" />,
+      active: (value) => value.startsWith('/candidate/messages'),
+    },
+    {
       href: '/candidate/dashboard#saved-roles',
       label: 'Saved Roles',
       icon: <BookMarked className="h-4 w-4" />,
@@ -110,6 +124,7 @@ export default function CandidateLayout({ children }: { children: React.ReactNod
     { href: '/candidate/dashboard', label: 'Dashboard' },
     { href: '/jobs', label: 'Jobs' },
     { href: '/candidate/applications', label: 'Pipeline' },
+    { href: '/candidate/messages', label: 'Messages' },
     { href: '/profile/edit', label: 'Profile' },
   ];
 
@@ -243,6 +258,9 @@ export default function CandidateLayout({ children }: { children: React.ReactNod
                   </button>
                   <Link href="/candidate/applications" className="c-tb-btn" aria-label="View applications">
                     <Bell className="h-4 w-4" />
+                  </Link>
+                  <Link href="/candidate/messages" className="c-tb-btn" aria-label="Open messages">
+                    <MessageSquare className="h-4 w-4" />
                   </Link>
                   <Link href="/profile/edit" className="c-tb-btn" aria-label="Edit profile">
                     <Settings2 className="h-4 w-4" />

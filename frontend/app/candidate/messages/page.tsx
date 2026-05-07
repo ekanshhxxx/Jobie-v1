@@ -38,10 +38,12 @@ export default function CandidateMessagesPage() {
   const [activeChannel, setActiveChannel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [openingJobId, setOpeningJobId] = useState<number | null>(null);
+  const [streamToken, setStreamToken] = useState('');
   const currentUser = getUser();
 
   useEffect(() => {
     let mounted = true;
+    let bootClient: StreamChat | null = null;
 
     const boot = async () => {
       if (!currentUser) {
@@ -61,6 +63,7 @@ export default function CandidateMessagesPage() {
         ]);
 
         const client = StreamChat.getInstance(authRes.apiKey);
+        bootClient = client;
         await client.connectUser(
           {
             id: authRes.streamUserId,
@@ -76,6 +79,7 @@ export default function CandidateMessagesPage() {
         }
 
         setStreamUserId(authRes.streamUserId);
+  setStreamToken(authRes.token);
         setContacts(contactsRes.contacts ?? []);
         setChatClient(client);
       } catch (error) {
@@ -98,7 +102,7 @@ export default function CandidateMessagesPage() {
 
     return () => {
       mounted = false;
-      if (chatClient) chatClient.disconnectUser();
+      if (bootClient) void bootClient.disconnectUser();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -111,12 +115,42 @@ export default function CandidateMessagesPage() {
     [streamUserId]
   );
 
+  const ensureConnectedClient = async () => {
+    if (!chatClient) {
+      throw new Error('Messaging client is not initialized yet.');
+    }
+
+    if (chatClient.userID === streamUserId) {
+      return chatClient;
+    }
+
+    if (chatClient.userID) {
+      await chatClient.disconnectUser();
+    }
+
+    if (!streamUserId || !streamToken) {
+      throw new Error('Messaging authentication is unavailable. Please refresh this page.');
+    }
+
+    await chatClient.connectUser(
+      {
+        id: streamUserId,
+        name: currentUser?.name || 'Candidate',
+        image: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'Candidate')}&background=0f172a&color=ffffff`,
+      },
+      streamToken
+    );
+
+    return chatClient;
+  };
+
   const openJobThread = async (jobId: number) => {
     if (!chatClient) return;
     try {
       setOpeningJobId(jobId);
+      const connectedClient = await ensureConnectedClient();
       const res = await api.post('/api/chat/stream/channel', { jobId });
-      const channel = chatClient.channel('messaging', res.channelId);
+      const channel = connectedClient.channel('messaging', res.channelId);
       await channel.watch();
       setActiveChannel(channel);
     } catch (error) {
@@ -182,6 +216,9 @@ export default function CandidateMessagesPage() {
                   sort={{ last_message_at: -1 } as any}
                   Preview={(props) => {
                     const channelData = (props.channel?.data ?? {}) as any;
+                    const channelCustom = channelData.custom ?? {};
+                    const displayName = channelData.name || channelCustom.name || props.channel?.id;
+                    const displayJobId = channelData.jobId || channelCustom.jobId;
                     return (
                       <button
                         onClick={() => setActiveChannel(props.channel)}
@@ -190,10 +227,10 @@ export default function CandidateMessagesPage() {
                         }`}
                       >
                         <div className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
-                          {channelData.name || props.channel?.id}
+                          {displayName}
                         </div>
                         <div className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 truncate">
-                          {channelData.jobId ? `Job #${channelData.jobId}` : 'Direct thread'}
+                          {displayJobId ? `Job #${displayJobId}` : 'Direct thread'}
                         </div>
                       </button>
                     );
