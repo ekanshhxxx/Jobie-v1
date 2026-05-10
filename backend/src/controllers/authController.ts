@@ -68,13 +68,28 @@ export const login = async (req: Request, res: Response) => {
 }
 
 const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
 
-    // generate OTP
+if (!isMatch) {
+  return res.status(400).json({ message: "Invalid email or password" });
+}
+
+// ✅ Admin bypasses OTP
+if (user.role === "admin") {
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET as string,
+    { expiresIn: "1h" }
+  );
+
+  return res.json({
+    message: "Admin login successful",
+    token,
+    user
+  });
+}
+
+// generate OTP
 const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
 // save OTP in user table
 user.otp = otp;
 user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -250,7 +265,6 @@ if (!email) {
         });
       } else {
         user.firebaseUid = uid;
-        user.password = null;
         await user.save();
       }
     }

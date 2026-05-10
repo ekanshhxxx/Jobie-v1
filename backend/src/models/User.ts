@@ -1,70 +1,118 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../config/database";
 
-const User = sequelize.define("User", {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true
-  },
+interface UserAttributes {
+  id: number;
+  name: string;
+  email: string;
+  password: string | null;
+  role: "candidate" | "recruiter" | "admin";
+  firebaseUid: string | null;
+  githubUid: string | null;
+  banned: boolean;
 
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
+  otp: string | null;
+  otpExpiry: Date | null;
+}
 
-  email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: "ux_users_email",
-    set(value: string) {
-      this.setDataValue("email", typeof value === "string" ? value.trim().toLowerCase() : value);
-    }
-  },
+interface UserCreationAttributes
+  extends Optional<
+    UserAttributes,
+    | "id"
+    | "password"
+    | "firebaseUid"
+    | "githubUid"
+    | "otp"
+    | "otpExpiry"
+  > {}
 
-  password: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+class User
+  extends Model<UserAttributes, UserCreationAttributes>
+  implements UserAttributes
+{
+  public id!: number;
+  public name!: string;
+  public email!: string;
+  public password!: string | null;
+  public role!: "candidate" | "recruiter" | "admin";
+  public firebaseUid!: string | null;
+  public githubUid!: string | null;
+  public banned!: boolean;
 
-  role: {
-    type: DataTypes.ENUM("candidate", "recruiter", "admin"),
-    defaultValue: "candidate"
-  },
+  public otp!: string | null;
+  public otpExpiry!: Date | null;
+}
 
-  firebaseUid: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: "ux_users_firebase_uid",
-    set(value: string | null) {
-      if (typeof value !== "string") {
-        this.setDataValue("firebaseUid", value);
-        return;
+User.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true
+    },
+
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: "ux_users_email",
+      set(value: string) {
+        this.setDataValue(
+          "email",
+          typeof value === "string"
+            ? value.trim().toLowerCase()
+            : value
+        );
       }
-      const normalized = value.trim();
-      this.setDataValue("firebaseUid", normalized.length ? normalized : null);
+    },
+
+    password: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    role: {
+      type: DataTypes.ENUM("candidate", "recruiter", "admin"),
+      defaultValue: "candidate"
+    },
+
+    firebaseUid: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: "ux_users_firebase_uid"
+    },
+
+    githubUid: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: "ux_users_github_uid"
+    },
+
+    banned: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
+
+    otp: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    otpExpiry: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   },
-
-  githubUid: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: "ux_users_github_uid",
-    set(value: string | null) {
-      if (typeof value !== "string") {
-        this.setDataValue("githubUid", value);
-        return;
-      }
-      const normalized = value.trim();
-      this.setDataValue("githubUid", normalized.length ? normalized : null);
-    }
-  },
-
-  banned: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false
+  {
+    sequelize,
+    tableName: "users",
+    timestamps: true
   }
-});
+);
 
 export default User;

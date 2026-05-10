@@ -24,6 +24,10 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [otp, setOtp] = useState('');
+  const [showOtp, setShowOtp] = useState(false);
+  const [message, setMessage] = useState('');
   const [pendingLink, setPendingLink] = useState<{
     credential: AuthCredential;
     provider: 'google' | 'github';
@@ -176,15 +180,32 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await api.post('/api/auth/login', form);
-      setAuth(data.token, data.user);
-      setPendingLink(null);
-      toast({
-        type: 'success',
-        emoji: '👋',
-        title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-        message: 'You are now signed in. Redirecting…',
-      });
-      await routeAfterAuth(data.user);
+
+setPendingLink(null);
+
+if (data.requiresOtp || data.userId) {
+  setUserId(data.userId);
+  setShowOtp(true);
+
+  toast({
+    type: 'success',
+    title: 'OTP Sent',
+    message: 'Please verify the OTP sent to your email.',
+  });
+
+  return;
+}
+
+setAuth(data.token, data.user);
+
+toast({
+  type: 'success',
+  emoji: '👋',
+  title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
+  message: 'You are now signed in. Redirecting…',
+});
+
+await routeAfterAuth(data.user);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       setError(msg);
@@ -235,8 +256,23 @@ export default function LoginPage() {
       const idToken = await result.user.getIdToken();
 
       const data = await api.post('/api/auth/firebase-login', { token: idToken });
-      setAuth(data.token, data.user);
+
       setPendingLink(null);
+
+      if (data.requiresOtp || data.userId) {
+  setUserId(data.userId);
+  setShowOtp(true);
+
+  toast({
+    type: 'success',
+    title: 'OTP Sent',
+    message: 'Please verify the OTP sent to your email.',
+  });
+
+  return;
+}
+
+      setAuth(data.token, data.user);
 
       toast({
         type: 'success',
@@ -306,21 +342,36 @@ export default function LoginPage() {
       const idToken = await result.user.getIdToken();
 
       const data = await api.post('/api/auth/firebase-login', {
-        token: idToken,
-        githubUsername,
-        githubUid
-      });
-      setAuth(data.token, data.user);
-      setPendingLink(null);
+  token: idToken,
+  githubUsername,
+  githubUid
+});
 
-      toast({
-        type: 'success',
-        emoji: '👋',
-        title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-        message: 'You are now signed in. Redirecting…',
-      });
+setPendingLink(null);
 
-      await routeAfterAuth(data.user);
+if (data.requiresOtp || data.userId) {
+  setUserId(data.userId);
+  setShowOtp(true);
+
+  toast({
+    type: 'success',
+    title: 'OTP Sent',
+    message: 'Please verify the OTP sent to your email.',
+  });
+
+  return;
+}
+
+setAuth(data.token, data.user);
+
+toast({
+  type: 'success',
+  emoji: '👋',
+  title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
+  message: 'You are now signed in. Redirecting…',
+});
+
+await routeAfterAuth(data.user);
     } catch (err: unknown) {
       if (await maybeHandleAccountLinking(err, 'github')) return;
       if (maybeHandleBackendConflict(err)) return;
@@ -331,6 +382,31 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  const verifyOtp = async () => {
+  try {
+    const data = await api.post('/api/auth/verify-otp', {
+      userId,
+      otp
+    });
+
+    setAuth(data.token, data.user);
+
+    toast({
+      type: 'success',
+      title: 'Login successful',
+      message: 'Welcome back!'
+    });
+
+    await routeAfterAuth(data.user);
+
+  } catch (err: any) {
+    toast({
+      type: 'error',
+      title: 'OTP failed',
+      message: err.message || 'OTP verification failed'
+    });
+  }
+};
 
   return (
     <div className="fixed inset-0 z-60 flex bg-white dark:bg-[#060610]">
@@ -576,6 +652,43 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      {showOtp && (
+  <div className="fixed inset-0 flex items-center justify-center z-50">
+    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    <div className="relative bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl w-[400px]">
+      <h2 className="text-2xl font-semibold text-center mb-4">
+        Enter OTP
+      </h2>
+
+      <p className="text-sm text-gray-500 text-center mb-6">
+        We sent a 6 digit code to your email
+      </p>
+
+      <input
+        type="text"
+        value={otp}
+        onChange={(e) => setOtp(e.target.value)}
+        placeholder="Enter OTP"
+        className="w-full border border-gray-300 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-black"
+      />
+
+      <button
+        onClick={verifyOtp}
+        className="w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl"
+      >
+        Verify OTP
+      </button>
+
+      <button
+        onClick={() => setShowOtp(false)}
+        className="w-full mt-2 text-gray-500"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
 
       {accountConflict && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">

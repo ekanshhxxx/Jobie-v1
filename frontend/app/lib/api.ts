@@ -1,5 +1,5 @@
 const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-const primaryBase = (envBase && envBase.length > 0 ? envBase : 'http://127.0.0.1:5000').replace(/\/+$/, '');
+const primaryBase = (envBase && envBase.length > 0 ? envBase : 'http://127.0.0.1:4000').replace(/\/+$/, '');
 const fallbackBase =
   primaryBase.includes('127.0.0.1')
     ? primaryBase.replace('127.0.0.1', 'localhost')
@@ -32,8 +32,19 @@ export function getToken(): string | null {
 
 export function getUser(): { id: number; name: string; email: string; role: string } | null {
   if (typeof window === 'undefined') return null;
+
   const u = localStorage.getItem('user');
-  return u ? JSON.parse(u) : null;
+
+  if (!u || u === 'undefined' || u === 'null') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(u);
+  } catch {
+    localStorage.removeItem('user');
+    return null;
+  }
 }
 
 export function setAuth(token: string, user: object) {
