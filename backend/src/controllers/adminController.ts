@@ -1,19 +1,50 @@
 import { Response } from "express";
 import { Op } from "sequelize";
+import { QueryTypes } from "sequelize";
 import { AuthRequest } from "../middleware/authMiddleware";
+import sequelize from "../config/database";
 import User from "../models/User";
 import Job from "../models/Job";
 import Application from "../models/Application";
 import Profile from "../models/Profile";
 
+// ─── PATCH /api/admin/jobs/:id/approve ──────────────────────────────────────
+export const approveJob = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = Number(req.params.id);
+    const job = await Job.findByPk(jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    await job.update({ status: "approved", approvalStatus: "approved" });
+    res.status(200).json({ message: "Job approved", jobId, status: "approved" });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving job", error });
+  }
+};
+
+// ─── PATCH /api/admin/jobs/:id/reject ───────────────────────────────────────
+export const rejectJob = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = Number(req.params.id);
+    const job = await Job.findByPk(jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    await job.update({ status: "rejected", approvalStatus: "rejected" });
+    res.status(200).json({ message: "Job rejected", jobId, status: "rejected" });
+  } catch (error) {
+    res.status(500).json({ message: "Error rejecting job", error });
+  }
+};
+
 // ─── GET /api/admin/stats ─────────────────────────────────────────────────────
 // Platform-wide dashboard numbers
 export const getStats = async (_req: AuthRequest, res: Response) => {
   try {
-    const [totalUsers, totalJobs, totalApplications, candidates, recruiters, admins] =
+    const [totalUsers, totalJobs, pendingJobs, approvedJobs, rejectedJobs, totalApplications, candidates, recruiters, admins] =
       await Promise.all([
         User.count(),
         Job.count(),
+        Job.count({ where: { approvalStatus: "pending_review" } }),
+        Job.count({ where: { approvalStatus: "approved" } }),
+        Job.count({ where: { approvalStatus: "rejected" } }),
         Application.count(),
         User.count({ where: { role: "candidate" } }),
         User.count({ where: { role: "recruiter" } }),
@@ -32,7 +63,7 @@ export const getStats = async (_req: AuthRequest, res: Response) => {
 
     res.status(200).json({
       users: { total: totalUsers, candidates, recruiters, admins },
-      jobs: { total: totalJobs },
+      jobs: { total: totalJobs, pending: pendingJobs, approved: approvedJobs, rejected: rejectedJobs },
       applications: {
         total: totalApplications,
         byStatus: statusCounts
@@ -40,6 +71,82 @@ export const getStats = async (_req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching stats", error });
+  }
+};
+
+// GET /api/admin/data-health
+// Duplicate/orphan diagnostics for identity consistency.
+export const getDataHealth = async (_req: AuthRequest, res: Response) => {
+  try {
+    const sequelize = (User as any).sequelize;
+    if (!sequelize) {
+      return res.status(500).json({ message: "Sequelize instance unavailable" });
+    }
+
+    const duplicateEmails = await sequelize.query(
+      `SELECT LOWER(TRIM(email)) AS normalizedEmail,
+              COUNT(*) AS total,
+              GROUP_CONCAT(id ORDER BY id) AS userIds,
+              GROUP_CONCAT(email ORDER BY id SEPARATOR ' | ') AS rawEmails
+         FROM users
+        GROUP BY LOWER(TRIM(email))
+       HAVING COUNT(*) > 1`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const duplicateFirebaseUids = await sequelize.query(
+      `SELECT TRIM(firebaseUid) AS firebaseUid,
+              COUNT(*) AS total,
+              GROUP_CONCAT(id ORDER BY id) AS userIds
+         FROM users
+        WHERE firebaseUid IS NOT NULL AND TRIM(firebaseUid) <> ''
+        GROUP BY TRIM(firebaseUid)
+       HAVING COUNT(*) > 1`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const duplicateGithubUids = await sequelize.query(
+      `SELECT TRIM(githubUid) AS githubUid,
+              COUNT(*) AS total,
+              GROUP_CONCAT(id ORDER BY id) AS userIds
+         FROM users
+        WHERE githubUid IS NOT NULL AND TRIM(githubUid) <> ''
+        GROUP BY TRIM(githubUid)
+       HAVING COUNT(*) > 1`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const orphanProfiles = await sequelize.query(
+      `SELECT p.id, p.userId
+         FROM profiles p
+         LEFT JOIN users u ON u.id = p.userId
+        WHERE u.id IS NULL`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const usersWithoutProfile = await sequelize.query(
+      `SELECT u.id
+         FROM users u
+         LEFT JOIN profiles p ON p.userId = u.id
+        WHERE p.id IS NULL`,
+      { type: QueryTypes.SELECT }
+    );
+
+    return res.status(200).json({
+      duplicates: {
+        emails: duplicateEmails,
+        firebaseUids: duplicateFirebaseUids,
+        githubUids: duplicateGithubUids,
+      },
+      integrity: {
+        orphanProfiles,
+        usersWithoutProfileCount: usersWithoutProfile.length,
+      },
+      recommendation:
+        "If duplicates are present, merge accounts first, then enforce/verify unique indexes on users(email,firebaseUid,githubUid) and profiles(userId).",
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching data health", error });
   }
 };
 
@@ -111,6 +218,57 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ─── GET /api/admin/recruiters/pending ────────────────────────────────────────
+// List all recruiters awaiting profile verification
+export const getPendingRecruiters = async (_req: AuthRequest, res: Response) => {
+  try {
+    const recruiters = await User.findAll({
+      where: { role: "recruiter" },
+      attributes: { exclude: ["password"] },
+      include: [
+        {
+          model: Profile,
+          as: "profile",
+          where: { headline: "PENDING_ADMIN_APPROVAL" }
+        }
+      ]
+    });
+    res.status(200).json(recruiters);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching pending recruiters", error });
+  }
+};
+
+// ─── PATCH /api/admin/recruiters/:id/approve ──────────────────────────────────
+// Verify a recruiter profile
+export const approveRecruiter = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const profile = await Profile.findOne({ where: { userId } });
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    await profile.update({ headline: "VERIFIED" });
+    res.status(200).json({ message: "Recruiter approved", userId });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving recruiter", error });
+  }
+};
+
+// ─── PATCH /api/admin/recruiters/:id/reject ───────────────────────────────────
+// Reject a recruiter profile
+export const rejectRecruiter = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const profile = await Profile.findOne({ where: { userId } });
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    await profile.update({ headline: "REJECTED" });
+    res.status(200).json({ message: "Recruiter rejected", userId });
+  } catch (error) {
+    res.status(500).json({ message: "Error rejecting recruiter", error });
+  }
+};
+
 // ─── DELETE /api/admin/users/:id ─────────────────────────────────────────────
 // Remove a user (cascades via DB constraints on Applications + Profile)
 export const deleteUser = async (req: AuthRequest, res: Response) => {
@@ -125,11 +283,12 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Clean up related records first
-    await Application.destroy({ where: { userId } });
-    await Profile.destroy({ where: { userId } });
-    await Job.destroy({ where: { recruiterId: userId } });
-    await user.destroy();
+    await sequelize.transaction(async (transaction) => {
+      await Application.destroy({ where: { userId }, transaction });
+      await Profile.destroy({ where: { userId }, transaction });
+      await Job.destroy({ where: { recruiterId: userId }, transaction });
+      await user.destroy({ transaction });
+    });
 
     res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
@@ -138,11 +297,12 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
 };
 
 // ─── GET /api/admin/jobs ──────────────────────────────────────────────────────
-// All jobs with recruiter info; optional ?recruiterId filter
+// All jobs with recruiter info; optional ?recruiterId and ?status filters
 export const getAllJobsAdmin = async (req: AuthRequest, res: Response) => {
   try {
     const where: any = {};
     if (req.query.recruiterId) where.recruiterId = Number(req.query.recruiterId);
+    if (req.query.status) where.status = req.query.status;
 
     const jobs = await Job.findAll({
       where,
@@ -213,5 +373,29 @@ export const searchUsers = async (req: AuthRequest, res: Response) => {
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: "Error searching users", error });
+  }
+};
+
+// ─── PATCH /api/admin/users/:id/ban  (added 2026-03-09) ──────────────────────
+export const banUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findByPk(Number(req.params.id));
+    if (!user) return res.status(404).json({ message: "User not found" });
+    await (user as any).update({ banned: true });
+    res.status(200).json({ message: "User banned" });
+  } catch (error) {
+    res.status(500).json({ message: "Error banning user", error });
+  }
+};
+
+// ─── PATCH /api/admin/users/:id/unban ────────────────────────────────────────
+export const unbanUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findByPk(Number(req.params.id));
+    if (!user) return res.status(404).json({ message: "User not found" });
+    await (user as any).update({ banned: false });
+    res.status(200).json({ message: "User unbanned" });
+  } catch (error) {
+    res.status(500).json({ message: "Error unbanning user", error });
   }
 };

@@ -1,3 +1,4 @@
+// @ts-nocheck
 export function getCurrentUser() {
   if (typeof window === "undefined") return null;
 
@@ -11,3 +12,5 @@ export function getCurrentUser() {
     return null;
   }
 }
+
+

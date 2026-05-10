@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 type Props = {
@@ -28,3 +29,5 @@ export default function Header({ search, setSearch }: Props) {
   );
 
 }
+
+

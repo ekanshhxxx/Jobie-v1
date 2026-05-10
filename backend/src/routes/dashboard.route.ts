@@ -1,12 +1,9 @@
 import express from "express";
-import { verifyJWT } from "../middleware/auth";
+import { getRecruiterDashboard } from "../controllers/dashboardController";
+import { requireRole, verifyToken } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-// 🔹 GET /api/dashboard
-router.get("/", verifyJWT, (req, res) => {
-  const user = (req as any).user; // JWT decoded info
-  res.json({ message: `Welcome to dashboard, ${user.email}`, user });
-});
+router.get("/recruiter/:recruiterId", verifyToken, requireRole("recruiter", "admin"), getRecruiterDashboard);
 
 export default router;

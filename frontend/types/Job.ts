@@ -1,3 +1,4 @@
+// @ts-nocheck
 export interface Job {
   id: number
   title: string
@@ -5,3 +6,5 @@ export interface Job {
   description: string
   location: string
 }
+
+

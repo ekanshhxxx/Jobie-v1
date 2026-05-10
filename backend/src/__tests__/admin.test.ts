@@ -38,7 +38,7 @@ const PASSWORD = "Test@1234";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 beforeAll(async () => {
-  await sequelize.sync();
+  await sequelize.sync({ force: false });
 
   // Register admin
   const a = await request(app).post("/api/auth/register")

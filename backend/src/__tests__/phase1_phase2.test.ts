@@ -34,7 +34,7 @@ const PASSWORD = "Test@1234";
 
 // ─── Setup & Teardown ─────────────────────────────────────────────────────────
 beforeAll(async () => {
-  await sequelize.sync();
+  await sequelize.sync({ force: false });
 });
 
 afterAll(async () => {
@@ -140,12 +140,12 @@ describe("Phase 1 — Auth: Token Protection", () => {
 // PHASE 1 — PROFILE
 
 describe("Phase 1 — Profile: Create", () => {
-  it("[11] should return 404 when getting a profile that does not exist yet", async () => {
-    // Re-login to get userId from token, try a high userId
+  it("[11] should block access when candidate requests another user's profile", async () => {
     const res = await request(app)
       .get("/api/profile/99999")
       .set("Authorization", `Bearer ${candidateToken}`);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe("Access denied");
   });
 
   it("[12] should create a candidate profile and auto-calculate completeness", async () => {
