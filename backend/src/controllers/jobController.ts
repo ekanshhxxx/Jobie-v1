@@ -9,7 +9,7 @@ export const getAllJobs = async (req: Request, res: Response) => {
   try {
 
     const jobs = await Job.findAll({
-      where: { status: "active" }
+      where: { status: "approved" }
     });
 
     res.status(200).json(jobs);
@@ -59,46 +59,43 @@ export const createJob = async (req: Request, res: Response) => {
   try {
 
     const {
-      title,
-      description,
-      company,
-      location,
-      salary,
-      experience,
-      jobType,
-      skills,
-      techSkills,
-      recruiterId,
-      status
-    } = req.body;
+  title,
+  description,
+  company,
+  location,
+  salary,
+  experienceLevel,
+  requiredSkills,
+  techStack,
+  recruiterId,
+  status
+} = req.body;
 
     if (
-      !title ||
-      !company ||
-      !location ||
-      !salary ||
-      !experience ||
-      !jobType ||
-      !description
-    ) {
+  !title ||
+  !company ||
+  !location ||
+  !salary ||
+  !experienceLevel ||
+  !description
+){
       return res.status(400).json({
         message: "All required fields must be filled"
       });
     }
 
     const job = await Job.create({
-      title,
-      description,
-      company,
-      location,
-      salary,
-      experience,
-      jobType,
-      skills,
-      techSkills,
-      recruiterId,
-      status
-    });
+  title,
+  description,
+  company,
+  location,
+  salary,
+  experienceLevel,
+  requiredSkills,
+  techStack,
+  recruiterId,
+  status
+});
 
     res.status(201).json(job);
 
