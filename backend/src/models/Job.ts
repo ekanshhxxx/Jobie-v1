@@ -1,91 +1,69 @@
-import { DataTypes, Model } from "sequelize";
+import { DataTypes } from "sequelize";
 import sequelize from "../config/database";
 
-class Job extends Model {
-  public id!: number;
-  public title!: string;
-  public description!: string;
-  public company!: string;
-  public location!: string;
-
-  public salary!: string;
-  public experience!: string;
-  public jobType!: string;
-
-  public skills!: string;
-  public techSkills!: string;
-
-  public recruiterId!: number;
-  public status!: string;
-}
-
-Job.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-
-    company: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-
-    location: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-
-    salary: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-
-    experience: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-
-    jobType: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-
-    skills: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-
-    techSkills: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-
-    recruiterId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-
-    status: {
-      type: DataTypes.ENUM("active", "draft", "closed"),
-      defaultValue: "active",
-    },
+const Job = sequelize.define("Job", {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  {
-    sequelize,
-    modelName: "Job",
+
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+
+  company: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+
+  location: {
+    type: DataTypes.STRING
+  },
+
+  salary: {
+    type: DataTypes.STRING
+  },
+
+  description: {
+    type: DataTypes.TEXT
+  },
+
+  requiredSkills: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+
+  techStack: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+
+  experienceLevel: {
+    type: DataTypes.ENUM("junior", "mid", "senior"),
+    defaultValue: "mid"
+  },
+
+  lifecycleStatus: {
+    type: DataTypes.ENUM("draft", "published", "closed"),
+    defaultValue: "published"
+  },
+
+  approvalStatus: {
+    type: DataTypes.ENUM("approved", "pending_review", "rejected"),
+    defaultValue: "approved"
+  },
+
+  recruiterId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+
+  status: {
+    type: DataTypes.ENUM("pending", "approved", "rejected"),
+    defaultValue: "approved"
   }
-);
+});
 
 export default Job;

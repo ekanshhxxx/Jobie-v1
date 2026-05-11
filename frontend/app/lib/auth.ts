@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { clearAuth } from './api';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../src/lib/firebase';
@@ -16,3 +17,5 @@ export const logout = async () => {
     console.error('Logout failed', err);
   }
 };
+
+

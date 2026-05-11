@@ -25,4 +25,8 @@ yarn-debug.log*
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 serviceAccountKey.json
+=======
+serviceAccountKey.json
+>>>>>>> origin/main

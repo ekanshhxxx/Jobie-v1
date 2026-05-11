@@ -150,17 +150,37 @@ export default function ArticlesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const selectTab = (tabId: string) => {
+    if (tabId === activeTab) return;
     setLoading(true);
     setError('');
-    fetch(`/api/news?category=${activeTab}`)
-      .then(r => r.json())
-      .then(data => {
+    setActiveTab(tabId);
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadArticles = async () => {
+      try {
+        const response = await fetch(`/api/news?category=${activeTab}`, { signal: controller.signal });
+        const data = await response.json();
+
         if (data.error) throw new Error(data.error);
+
         setArticles(data.articles ?? []);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setError(error instanceof Error ? error.message : 'Failed to load articles');
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadArticles();
+
+    return () => controller.abort();
   }, [activeTab]);
 
   const hero = articles[0];
@@ -195,7 +215,7 @@ export default function ArticlesSection() {
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-[#2563EB] dark:bg-violet-600 text-white shadow-lg shadow-blue-500/25 dark:shadow-violet-600/25'

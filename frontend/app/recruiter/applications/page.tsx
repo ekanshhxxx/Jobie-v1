@@ -1,240 +1,552 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { getCurrentUser } from "@/lib/user";
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { api, clearAuth, getUser } from '../../lib/api';
+import { useToast } from '../../components/ToastProvider';
+import { CalendarClock, MessageSquare, RefreshCw, Search, UserRound } from 'lucide-react';
 
-export default function Applications() {
+type ApplicationStatus =
+  | 'applied'
+  | 'shortlisted'
+  | 'interview_scheduled'
+  | 'interview_done'
+  | 'offer_sent'
+  | 'offer_accepted'
+  | 'offer_rejected'
+  | 'hired'
+  | 'rejected';
 
-  const user = getCurrentUser();
+interface RecruiterApplication {
+  id: number;
+  userId: number;
+  jobId: number;
+  status: ApplicationStatus;
+  createdAt: string | null;
+  User: {
+    id: number;
+    name: string;
+    email: string;
+    profile?: {
+      title?: string;
+      skills?: string[];
+    };
+  };
+  Job: {
+    id: number;
+    title: string;
+    company: string;
+    location?: string;
+  } | null;
+  matchSummary?: {
+    matchScore: number;
+    hiringProbability: number;
+    matchedSkills: string[];
+    missingSkills: string[];
+  };
+}
 
-  const [applications, setApplications] = useState<any[]>([]);
+interface RecruiterMeeting {
+  id: number;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  candidate?: { id: number; name: string };
+  job?: { id: number; title: string };
+}
+
+const STATUSES: ApplicationStatus[] = [
+  'applied',
+  'shortlisted',
+  'interview_scheduled',
+  'interview_done',
+  'offer_sent',
+  'offer_accepted',
+  'offer_rejected',
+  'hired',
+  'rejected',
+];
+
+function toLabel(value: string) {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function parseErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function statusBadgeClass(status: ApplicationStatus) {
+  const map: Record<ApplicationStatus, string> = {
+    applied: 'bg-slate-100 text-slate-700 border-slate-200',
+    shortlisted: 'bg-blue-50 text-blue-700 border-blue-200',
+    interview_scheduled: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    interview_done: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    offer_sent: 'bg-violet-50 text-violet-700 border-violet-200',
+    offer_accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    offer_rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+    hired: 'bg-green-50 text-green-700 border-green-200',
+    rejected: 'bg-red-50 text-red-700 border-red-200',
+  };
+  return map[status] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+}
+
+function formatDate(dateValue: string | null) {
+  if (!dateValue) return 'Unknown';
+  return new Date(dateValue).toLocaleString();
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
+}
+
+export default function RecruiterApplicationsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [applications, setApplications] = useState<RecruiterApplication[]>([]);
+  const [meetings, setMeetings] = useState<RecruiterMeeting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | ApplicationStatus>('all');
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const [scheduleTarget, setScheduleTarget] = useState<RecruiterApplication | null>(null);
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [scheduleDescription, setScheduleDescription] = useState('');
+  const [scheduleMeetingUrl, setScheduleMeetingUrl] = useState('');
+  const [scheduleAt, setScheduleAt] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+  const [scheduleDuration, setScheduleDuration] = useState(45);
+
+  const handleUnauthorized = () => {
+    clearAuth();
+    router.push('/login');
+  };
+
+  const fetchPipeline = async () => {
+    try {
+      setLoading(true);
+      const user = getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      if (user.role !== 'recruiter' && user.role !== 'admin') {
+        router.push('/candidate/dashboard');
+        return;
+      }
+
+      const [appData, meetingData] = await Promise.all([
+        api.get(`/api/applications/recruiter/${user.id}`),
+        api.get('/api/meetings/recruiter').catch(() => []),
+      ]);
+
+      setApplications(Array.isArray(appData) ? appData : []);
+      setMeetings(Array.isArray(meetingData) ? meetingData : []);
+    } catch (error) {
+      const message = parseErrorMessage(error, 'Could not load applicant pipeline.');
+      if (/unauthorized|jwt|token|access denied/i.test(message)) {
+        handleUnauthorized();
+        return;
+      }
+      toast({
+        type: 'error',
+        title: 'Pipeline unavailable',
+        message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (user?.id) {
-      fetchApplications();
-    }
+    void fetchPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchApplications = async () => {
-  try {
-
-    setLoading(true);
-
-    const token = localStorage.getItem("token");
-
-    const res = await fetch(
-      `http://localhost:4000/api/applications/recruiter/${user?.id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+  const meetingByCandidateJob = useMemo(() => {
+    const map = new Map<string, RecruiterMeeting>();
+    for (const meeting of meetings) {
+      const candidateId = meeting.candidate?.id;
+      const jobId = meeting.job?.id;
+      if (!candidateId || !jobId) continue;
+      const key = `${candidateId}:${jobId}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, meeting);
+        continue;
       }
-    );
+      const existingTime = new Date(existing.scheduledAt).getTime();
+      const nextTime = new Date(meeting.scheduledAt).getTime();
+      if (nextTime > Date.now() && (existingTime < Date.now() || nextTime < existingTime)) {
+        map.set(key, meeting);
+      }
+    }
+    return map;
+  }, [meetings]);
 
-    const data = await res.json();
-
-    console.log("Recruiter Applications:", data);
-
-    setApplications(Array.isArray(data) ? data : data.applications || []);
-
-    setLoading(false);
-
-  } catch (error) {
-
-    console.log(error);
-    setApplications([]);
-    setLoading(false);
-
-  }
-};
-
- const updateStatus = async (id:number,status:string) => {
-
-  try {
-
-    const token = localStorage.getItem("token");
-
-    await fetch(`http://localhost:4000/api/applications/${id}`,{
-      method:"PUT",
-      headers:{
-        "Content-Type":"application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body:JSON.stringify({status})
+  const filteredApplications = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return applications.filter((app) => {
+      if (statusFilter !== 'all' && app.status !== statusFilter) return false;
+      if (!needle) return true;
+      const haystack = [
+        app.User?.name,
+        app.User?.email,
+        app.Job?.title,
+        app.Job?.company,
+        ...(app.User?.profile?.skills ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
     });
+  }, [applications, search, statusFilter]);
 
-    fetchApplications();
-
-  } catch (error) {
-    console.log(error);
-  }
-
-};
-
-  const getStatusColor = (status: string) => {
-
-    if (status === "shortlisted")
-      return "bg-green-100 text-green-700";
-
-    if (status === "rejected")
-      return "bg-red-100 text-red-700";
-
-    return "bg-yellow-100 text-yellow-700";
+  const updateStatus = async (applicationId: number, nextStatus: ApplicationStatus) => {
+    try {
+      setBusyId(applicationId);
+      await api.put(`/api/applications/${applicationId}/status`, { status: nextStatus });
+      setApplications((prev) =>
+        prev.map((item) => (item.id === applicationId ? { ...item, status: nextStatus } : item))
+      );
+      toast({
+        type: 'success',
+        title: 'Status updated',
+        message: `Application moved to ${toLabel(nextStatus)}.`,
+      });
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Status update failed',
+        message: parseErrorMessage(error, 'Try again in a moment.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const getTimeAgo = (date:string) => {
-
-    if(!date) return "-";
-
-    const now = new Date();
-    const applied = new Date(date);
-
-    const diff = Math.floor(
-      (now.getTime() - applied.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (diff === 0) return "Today";
-    if (diff === 1) return "1 day ago";
-
-    return `${diff} days ago`;
+  const openSchedule = (application: RecruiterApplication) => {
+    setScheduleTarget(application);
+    setScheduleTitle(`${application.Job?.title ?? 'Interview'} - ${application.User?.name ?? 'Candidate'}`);
+    setScheduleDescription('Live interview discussion and role fit assessment.');
+    setScheduleMeetingUrl('');
+    setScheduleAt(toDateTimeLocalValue(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+    setScheduleDuration(45);
   };
+
+  const submitSchedule = async () => {
+    if (!scheduleTarget) return;
+    if (!scheduleAt) {
+      toast({ type: 'warning', title: 'Missing date/time', message: 'Select an interview time first.' });
+      return;
+    }
+
+    const cleanMeetingUrl = scheduleMeetingUrl.trim();
+    if (!cleanMeetingUrl) {
+      toast({ type: 'warning', title: 'Missing Google Meet link', message: 'Paste a Google Meet URL before confirming.' });
+      return;
+    }
+
+    if (!/^https:\/\/meet\.google\.com\/.+/i.test(cleanMeetingUrl)) {
+      toast({ type: 'warning', title: 'Invalid Google Meet link', message: 'Use a valid https://meet.google.com/... URL.' });
+      return;
+    }
+
+    const iso = new Date(scheduleAt).toISOString();
+    if (!iso || iso === 'Invalid Date') {
+      toast({ type: 'warning', title: 'Invalid date/time', message: 'Please use a valid interview time.' });
+      return;
+    }
+
+    try {
+      setBusyId(scheduleTarget.id);
+      await api.post('/api/meetings/schedule', {
+        jobId: scheduleTarget.jobId,
+        candidateId: scheduleTarget.userId,
+        title: scheduleTitle,
+        description: scheduleDescription,
+        meetingUrl: cleanMeetingUrl,
+        scheduledAt: iso,
+        duration: scheduleDuration,
+      });
+
+      setApplications((prev) =>
+        prev.map((item) =>
+          item.id === scheduleTarget.id
+            ? {
+                ...item,
+                status: 'interview_scheduled',
+              }
+            : item
+        )
+      );
+
+      setScheduleTarget(null);
+      toast({
+        type: 'success',
+        title: 'Interview scheduled',
+        message: `Interview added for ${scheduleTarget.User?.name ?? 'candidate'}.`,
+      });
+      await fetchPipeline();
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Could not schedule interview',
+        message: parseErrorMessage(error, 'Please review candidate and role details.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pipelineStats = useMemo(() => {
+    const total = applications.length;
+    const active = applications.filter((app) => !['rejected', 'hired'].includes(app.status)).length;
+    const interviewing = applications.filter((app) =>
+      ['interview_scheduled', 'interview_done'].includes(app.status)
+    ).length;
+    const hires = applications.filter((app) => app.status === 'hired').length;
+    return { total, active, interviewing, hires };
+  }, [applications]);
 
   return (
+    <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Candidate Pipeline</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Review applicants, start messaging, and schedule interviews from one workspace.
+            </p>
+          </div>
+          <button
+            onClick={() => void fetchPipeline()}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
 
-    <div className="text-[#111827]">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Total Applicants</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.total}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Active Pipeline</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.active}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Interview Stage</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.interviewing}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Hired</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{pipelineStats.hires}</p>
+          </div>
+        </div>
 
-      <h1 className="text-3xl font-bold mb-8">
-        Job Applications
-      </h1>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <label className="relative flex-1">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by candidate, email, role, company, skill"
+                className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
 
-      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 overflow-x-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | ApplicationStatus)}
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+            >
+              <option value="all">All statuses</option>
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {toLabel(status)}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <table className="w-full">
+          {loading ? (
+            <div className="py-14 text-center text-sm text-gray-500">Loading applicant pipeline...</div>
+          ) : filteredApplications.length === 0 ? (
+            <div className="py-14 text-center text-sm text-gray-500">No applications matched your current filters.</div>
+          ) : (
+            <div className="space-y-3">
+              {filteredApplications.map((application) => {
+                const nextMeeting = meetingByCandidateJob.get(`${application.userId}:${application.jobId}`);
+                return (
+                  <article key={application.id} className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                    <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-base font-semibold text-gray-900 truncate">{application.User?.name ?? 'Candidate'}</h2>
+                          <span className={`text-xs px-2 py-1 rounded-full border ${statusBadgeClass(application.status)}`}>
+                            {toLabel(application.status)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 truncate">{application.User?.email || 'No email available'}</p>
+                        <p className="text-sm text-gray-800 font-medium">
+                          {application.Job?.title ?? 'Role unavailable'}
+                          <span className="text-gray-500 font-normal"> · {application.Job?.company ?? 'Company unavailable'}</span>
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2 py-1">Applied: {formatDate(application.createdAt)}</span>
+                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
+                            Match: {application.matchSummary?.matchScore ?? 0}%
+                          </span>
+                          <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">
+                            Hire probability: {application.matchSummary?.hiringProbability ?? 0}%
+                          </span>
+                        </div>
+                        {!!nextMeeting && (
+                          <p className="text-xs text-cyan-700 bg-cyan-50 border border-cyan-200 inline-flex rounded-lg px-2.5 py-1.5">
+                            Next interview: {new Date(nextMeeting.scheduledAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
 
-          <thead className="bg-[#F8FAFC] text-[#6B7280] border-b border-[#E5E7EB]">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 xl:w-56">
+                        <button
+                          onClick={() => router.push(`/profile/${application.userId}`)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                          <UserRound className="w-4 h-4" />
+                          View Profile
+                        </button>
 
-            <tr>
-              <th className="p-4 text-left">Application ID</th>
-              <th className="p-4 text-left">Candidate</th>
-              <th className="p-4 text-left">Email</th>
-              <th className="p-4 text-left">Job Title</th>
-              <th className="p-4 text-left">Applied</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-center">Actions</th>
-            </tr>
+                        <button
+                          onClick={() => router.push(`/recruiter/messages?candidateId=${application.userId}&jobId=${application.jobId}`)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Open Chat
+                        </button>
 
-          </thead>
+                        <button
+                          onClick={() => openSchedule(application)}
+                          disabled={busyId === application.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 hover:bg-cyan-100 disabled:opacity-60"
+                        >
+                          <CalendarClock className="w-4 h-4" />
+                          Schedule Interview
+                        </button>
 
-          <tbody>
-
-            {loading ? (
-
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-[#6B7280]">
-                  Loading applications...
-                </td>
-              </tr>
-
-            ) : applications.length === 0 ? (
-
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-[#6B7280]">
-                  No applications yet
-                </td>
-              </tr>
-
-            ) : (
-
-              applications.map((app) => (
-
-                <tr
-                  key={app.id}
-                  className="border-b border-[#E5E7EB] hover:bg-[#F8FAFC]"
-                >
-
-                  <td className="p-4 font-medium">
-                    #{app.id}
-                  </td>
-
-                  <td className="p-4 font-medium">
-                    {app.User?.name}
-                  </td>
-
-                  <td className="p-4 text-[#6B7280]">
-                    {app.User?.email}
-                  </td>
-
-                  <td className="p-4">
-                    {app.Job?.title}
-                  </td>
-
-                  <td className="p-4 text-sm text-gray-500">
-                    {getTimeAgo(app.createdAt)}
-                  </td>
-
-                  <td className="p-4">
-
-                    <span
-                      className={`px-3 py-1 text-xs rounded-full ${getStatusColor(app.status)}`}
-                    >
-                      {app.status === "shortlisted" ? "Accepted" : app.status}
-                    </span>
-
-                  </td>
-
-                  <td className="p-4">
-
-                    <div className="flex justify-center gap-2">
-
-                      {app.status === "applied" && (
-                        <>
-                          <button
-                            onClick={()=>updateStatus(app.id,"shortlisted")}
-                            className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs transition"
-                          >
-                            Accept
-                          </button>
-
-                          <button
-                            onClick={()=>updateStatus(app.id,"rejected")}
-                            className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs transition"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-
-                      {app.status === "shortlisted" && (
-                        <span className="text-xs text-green-700 font-medium">
-                          ✓ Accepted
-                        </span>
-                      )}
-
-                      {app.status === "rejected" && (
-                        <span className="text-xs text-red-700 font-medium">
-                          ✕ Rejected
-                        </span>
-                      )}
-
+                        <select
+                          value={application.status}
+                          onChange={(e) => void updateStatus(application.id, e.target.value as ApplicationStatus)}
+                          disabled={busyId === application.id}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:opacity-60"
+                        >
+                          {STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {toLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-
-                  </td>
-
-                </tr>
-
-              ))
-
-            )}
-
-          </tbody>
-
-        </table>
-
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
+      {scheduleTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white shadow-2xl p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Schedule Interview</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {scheduleTarget.User?.name} · {scheduleTarget.Job?.title}
+              </p>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Title</span>
+              <input
+                value={scheduleTitle}
+                onChange={(e) => setScheduleTitle(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Google Meet URL</span>
+              <input
+                value={scheduleMeetingUrl}
+                onChange={(e) => setScheduleMeetingUrl(e.target.value)}
+                placeholder="https://meet.google.com/abc-defg-hij"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-gray-600">Description</span>
+              <textarea
+                value={scheduleDescription}
+                onChange={(e) => setScheduleDescription(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Date & time</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Duration (minutes)</span>
+                <input
+                  type="number"
+                  min={15}
+                  max={180}
+                  step={15}
+                  value={scheduleDuration}
+                  onChange={(e) => setScheduleDuration(Number(e.target.value) || 30)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setScheduleTarget(null)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void submitSchedule()}
+                disabled={busyId === scheduleTarget.id}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
+              >
+                Confirm Interview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-
   );
-
 }

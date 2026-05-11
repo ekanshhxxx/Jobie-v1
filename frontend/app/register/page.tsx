@@ -6,16 +6,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { api, setAuth } from '../lib/api';
 import { useToast } from '../components/ToastProvider';
-import { createUserWithEmailAndPassword } from "firebase/auth";
-//import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../src/lib/firebase";
-import { 
+import type { FirebaseError } from 'firebase/app';
+import {
   signInWithPopup,
+  GithubAuthProvider,
   GoogleAuthProvider,
-  GithubAuthProvider
-} from "firebase/auth";
-
-
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
+  AuthCredential
+} from 'firebase/auth';
+import { auth, googleProvider, githubProvider } from '../../src/lib/firebase';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,135 +24,286 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-const googleProvider = new GoogleAuthProvider();
-const githubProvider = new GithubAuthProvider();
-  
-const submit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+  const [pendingLink, setPendingLink] = useState<{
+    credential: AuthCredential;
+    provider: 'google' | 'github';
+    email?: string;
+    methods?: string[];
+  } | null>(null);
 
-  try {
-    // 🔹 Firebase Authentication
-   const userCredential = await createUserWithEmailAndPassword(
-  auth,
-  form.email,
-  form.password
-);
+  const fetchGithubInfo = async (accessToken?: string) => {
+    if (!accessToken) return { githubUsername: undefined as string | undefined, githubUid: undefined as string | undefined };
+    try {
+      const ghRes = await fetch('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!ghRes.ok) return { githubUsername: undefined, githubUid: undefined };
+      const gh = await ghRes.json();
+      return { githubUsername: gh.login, githubUid: gh.id ? String(gh.id) : undefined };
+    } catch {
+      return { githubUsername: undefined, githubUid: undefined };
+    }
+  };
 
-const firebaseUser = userCredential.user;
+  const formatProviderList = (methods: string[]) => {
+    return methods
+      .map(method => {
+        if (method === 'google.com') return 'Google';
+        if (method === 'github.com') return 'GitHub';
+        if (method === 'password') return 'Email/Password';
+        return method;
+      })
+      .join(', ');
+  };
 
-// GET FIREBASE TOKEN
-// const token = await firebaseUser.getIdToken();
+  const maybeHandleAccountLinking = async (err: unknown, pendingProvider: 'google' | 'github') => {
+    const fbErr = err as { code?: string; customData?: { email?: string } };
+    if (fbErr?.code !== 'auth/account-exists-with-different-credential') return false;
 
-// const data = await api.post('/api/auth/register', {
-//   ...form,
-//   token
-// });
-    
-const firebaseUid = firebaseUser.uid;
+    const email = fbErr?.customData?.email;
+    const pendingCredential =
+      pendingProvider === 'github'
+        ? GithubAuthProvider.credentialFromError(err as FirebaseError)
+        : GoogleAuthProvider.credentialFromError(err as FirebaseError);
 
-const data = await api.post('/api/auth/register', {
-  ...form,
-  firebaseUid
-});
+    if (!email || !pendingCredential) {
+      const msg = 'This email is already linked to another sign-in method. Please sign in with that method first.';
+      setError(msg);
+      toast({ type: 'error', title: 'Linking required', message: msg });
+      return true;
+    }
 
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      setPendingLink({ credential: pendingCredential, provider: pendingProvider, email, methods });
 
-    setAuth(data.token, data.user);
+      let msg = 'This email is already linked to another sign-in method. Please use that method to link accounts.';
+      if (methods.includes('google.com')) {
+        msg = 'This email is linked to Google. Click Google to link accounts.';
+      } else if (methods.includes('github.com')) {
+        msg = 'This email is linked to GitHub. Click GitHub to link accounts.';
+      } else if (methods.includes('password')) {
+        msg = 'This email uses Email/Password. Please sign in with email and password, then try again to link.';
+      } else if (methods.length === 0) {
+        msg = 'We could not determine which provider owns this email. Click Google or GitHub to try linking.';
+      } else {
+        msg = `This email is linked to: ${formatProviderList(methods)}. Please sign in with that method first.`;
+      }
 
-    const firstName = form.name.trim().split(' ')[0];
+      setError(msg);
+      toast({ type: 'error', title: 'Linking required', message: msg });
+      return true;
+    } catch (linkErr: unknown) {
+      const msg = linkErr instanceof Error ? linkErr.message : 'Linking failed';
+      setError(msg);
+      toast({ type: 'error', title: 'Linking failed', message: msg });
+      return true;
+    }
+  };
 
-    toast({
-      type: 'success',
-      emoji: '🎉',
-      title: `Account created, ${firstName}!`,
-      message: `Welcome to Jobie. Your journey starts now.`,
-    });
+  const routeAfterAuth = async (u: { id: number; role: string }) => {
+    if (u.role === 'admin') {
+      router.push('/admin');
+      return;
+    }
+    if (u.role === 'recruiter') {
+      try {
+        const profileData = await api.get(`/api/profile/${u.id}`);
+        const profile = profileData?.profile ?? profileData;
+        const approvalState = String(profile?.headline ?? '').trim().toUpperCase();
+        if (approvalState === 'PENDING_ADMIN_APPROVAL') {
+          router.push('/recruiter-setup');
+          return;
+        }
+        if (approvalState === 'VERIFIED') {
+          router.push('/recruiter/dashboard');
+          return;
+        }
+        if (!profile?.companyName) {
+          router.push('/recruiter-setup');
+          return;
+        }
+        router.push('/recruiter/dashboard');
+        return;
+      } catch {
+        router.push('/recruiter-setup');
+        return;
+      }
+    }
+    try {
+      const profileData = await api.get(`/api/profile/${u.id}`);
+      const profile = profileData.profile ?? profileData;
+      const completeness = profile?.profileCompleteness ?? 0;
+      if (!profile || completeness < 40) {
+        router.push('/onboarding');
+      } else {
+        router.push('/candidate/dashboard');
+      }
+    } catch {
+      router.push('/onboarding');
+    }
+  };
 
-    router.push('/');
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await api.post('/api/auth/register', form);
+      setAuth(data.token, data.user);
+      setPendingLink(null);
+      const firstName = form.name.trim().split(' ')[0];
+      toast({
+        type: 'success',
+        emoji: '🎉',
+        title: `Account created, ${firstName}!`,
+        message: `Welcome to Jobie. Your journey starts now.`,
+      });
+    await routeAfterAuth(data.user);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Registration failed';
+      setError(msg);
+      toast({
+        type: 'error',
+        title: 'Registration failed',
+        message: msg,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Registration failed';
+  const handleGoogleSignup = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      if (pendingLink) {
+        if (pendingLink.provider === 'google') {
+          const msg = 'To link accounts, click GitHub (the other provider).';
+          setError(msg);
+          toast({ type: 'info', title: 'Linking required', message: msg });
+          return;
+        }
 
-    setError(msg);
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, googleProvider);
+        await linkWithCredential(result.user, pendingLink.credential);
 
-    toast({
-      type: 'error',
-      title: 'Registration failed',
-      message: msg,
-    });
+        const accessToken = (pendingLink.credential as { accessToken?: string }).accessToken;
+        const { githubUsername, githubUid } = await fetchGithubInfo(accessToken);
+        const idToken = await result.user.getIdToken();
+        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
+        setAuth(data.token, data.user);
+        setPendingLink(null);
 
-  } finally {
-    setLoading(false);
-  }
-};
+        toast({
+          type: 'success',
+          title: 'Accounts linked',
+          message: 'Google and GitHub are now linked. Redirecting...'
+        });
+        await routeAfterAuth(data.user);
+        return;
+      }
 
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
 
-const handleGoogleSignup = async () => {
-  try {
-     const googleProvider = new GoogleAuthProvider();
-    googleProvider.setCustomParameters({
-      prompt: 'select_account', // har login pe account choose karne ka option
-    });
+      const data = await api.post('/api/auth/firebase-login', { token: idToken });
+      setAuth(data.token, data.user);
+      setPendingLink(null);
 
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-if (!user) throw new Error("No user returned from Google");
+      toast({
+        type: 'success',
+        emoji: '🎉',
+        title: `Welcome, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
+        message: 'Your account is ready. Redirecting…',
+      });
 
-    const token = await user.getIdToken();
+      await routeAfterAuth(data.user);
+    } catch (err: unknown) {
+      if (await maybeHandleAccountLinking(err, 'google')) return;
+      const msg = err instanceof Error ? err.message : 'Google signup failed';
+      setError(msg);
+      toast({ type: 'error', title: 'Google sign-up failed', message: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const data = await api.post('/api/auth/firebase-login', { token });
+  const handleGithubSignup = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      if (pendingLink) {
+        if (pendingLink.provider === 'github') {
+          const msg = 'To link accounts, click Google (the other provider).';
+          setError(msg);
+          toast({ type: 'info', title: 'Linking required', message: msg });
+          return;
+        }
 
-    setAuth(data.token, data.user);
+        githubProvider.setCustomParameters({
+          allow_signup: 'true',
+          prompt: 'select_account'
+        });
+        githubProvider.addScope('read:user');
+        githubProvider.addScope('user:email');
+        const result = await signInWithPopup(auth, githubProvider);
+        await linkWithCredential(result.user, pendingLink.credential);
 
-    toast({
-      type: 'success',
-      emoji: '🎉',
-      title: `Welcome ${user.displayName}`,
-      message: 'Account created with Google',
-    });
+        const credential = GithubAuthProvider.credentialFromResult(result);
+        const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
+        const idToken = await result.user.getIdToken();
+        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
+        setAuth(data.token, data.user);
+        setPendingLink(null);
 
-    router.push('/');
+        toast({
+          type: 'success',
+          title: 'Accounts linked',
+          message: 'GitHub and Google are now linked. Redirecting...'
+        });
+        await routeAfterAuth(data.user);
+        return;
+      }
 
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-const handleGithubSignup = async () => {
-  try {
-
-     const githubProvider = new GithubAuthProvider();
-
-    // Optional: force re-authentication
     githubProvider.setCustomParameters({
-      allow_signup: 'true',  // agar naya account ban sakta hai
-      prompt: 'select_account' // yahi line user ko choose karne degi
+      allow_signup: 'true',
+      prompt: 'select_account'
     });
+    githubProvider.addScope('read:user');
+    githubProvider.addScope('user:email');
+      const result = await signInWithPopup(auth, githubProvider);
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
+      const idToken = await result.user.getIdToken();
 
-    const result = await signInWithPopup(auth, githubProvider);
-   const user = result.user;
-if (!user || !user.email) throw new Error("GitHub account has no public email");
-      const token = await user.getIdToken();
+      const data = await api.post('/api/auth/firebase-login', {
+        token: idToken,
+        githubUsername,
+        githubUid
+      });
+      setAuth(data.token, data.user);
+      setPendingLink(null);
 
-const data = await api.post('/api/auth/firebase-login', { token });
+      toast({
+        type: 'success',
+        emoji: '🎉',
+        title: `Welcome, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
+        message: 'Your account is ready. Redirecting…',
+      });
 
-    setAuth(data.token, data.user);
-
-    toast({
-      type: 'success',
-      emoji: '🎉',
-      title: `Welcome ${user.displayName || "Developer"}`,
-      message: 'Account created with GitHub',
-    });
-
-    router.push('/');
-
-  } catch (error) {
-    console.log(error);
-  }
-};
-
+      await routeAfterAuth(data.user);
+    } catch (err: unknown) {
+      if (await maybeHandleAccountLinking(err, 'github')) return;
+      const msg = err instanceof Error ? err.message : 'GitHub signup failed';
+      setError(msg);
+      toast({ type: 'error', title: 'GitHub sign-up failed', message: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-60 flex bg-white dark:bg-[#060610]">
@@ -199,31 +350,25 @@ const data = await api.post('/api/auth/firebase-login', { token });
 
             {/* Social login */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-  <button
-    type="button"
-    onClick={handleGoogleSignup}
-    className="flex items-center justify-center gap-2 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 text-sm font-medium py-2.5 rounded-xl transition cursor-pointer"
-  >
-    <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-    Google
-  </button>
-
-  <button
-    type="button"
-    onClick={handleGithubSignup}
-    className="flex items-center justify-center gap-2 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 text-sm font-medium py-2.5 rounded-xl transition cursor-pointer"
-  >
-    <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12"/>
-    </svg>
-    GitHub
-  </button>
-</div>
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 text-sm font-medium py-2.5 rounded-xl transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                Google
+              </button>
+              <button
+                type="button"
+                onClick={handleGithubSignup}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 text-sm font-medium py-2.5 rounded-xl transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12"/></svg>
+                GitHub
+              </button>
+            </div>
 
             {/* Divider */}
             <div className="flex items-center gap-3 mb-5">

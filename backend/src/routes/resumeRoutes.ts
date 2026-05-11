@@ -6,6 +6,7 @@ import {
   parseAndSaveToProfile,
   matchResumeToJob,
   uploadMiddleware,
+  getResumeReport,
 } from "../controllers/resumeController";
 
 const router = Router();
@@ -21,5 +22,8 @@ router.post("/parse-and-save/:userId", verifyToken, uploadMiddleware, parseAndSa
 
 // Protected — upload resume, compare against a specific job's requirements
 router.post("/match/:jobId", verifyToken, uploadMiddleware, matchResumeToJob);
+
+// Protected — get stored resume report card from DB
+router.get("/report/:userId", verifyToken, getResumeReport);
 
 export default router;

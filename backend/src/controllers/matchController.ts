@@ -6,6 +6,14 @@ import roadmaps from "../data/roadmaps";
 
 export const getMatchScore = async (req: Request, res: Response) => {
   try {
+    const parseArray = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val) || []; } catch { return []; }
+      }
+      return [];
+    };
+
     const userId = Number(req.params.userId);
     const jobId = Number(req.params.jobId);
 
@@ -15,11 +23,11 @@ export const getMatchScore = async (req: Request, res: Response) => {
     const job = await Job.findByPk(jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
 
-    const candidateSkills: string[] = (profile as any).skills || [];
-    const requiredSkills: string[] = (job as any).requiredSkills || [];
-    const techStack: string[] = (job as any).techStack || [];
-    const projects: any[] = (profile as any).projects || [];
-    const experience: any[] = (profile as any).experience || [];
+    const candidateSkills: string[] = parseArray((profile as any).skills);
+    const requiredSkills: string[] = parseArray((job as any).requiredSkills);
+    const techStack: string[] = parseArray((job as any).techStack);
+    const projects: any[] = parseArray((profile as any).projects);
+    const experience: any[] = parseArray((profile as any).experience);
 
     const matchResult = calculateMatchScore(candidateSkills, requiredSkills, techStack);
 
@@ -52,6 +60,14 @@ export const getMatchScore = async (req: Request, res: Response) => {
 
 export const getSkillGap = async (req: Request, res: Response) => {
   try {
+    const parseArray = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val) || []; } catch { return []; }
+      }
+      return [];
+    };
+
     const userId = Number(req.params.userId);
     const jobId = Number(req.params.jobId);
 
@@ -61,9 +77,9 @@ export const getSkillGap = async (req: Request, res: Response) => {
     const job = await Job.findByPk(jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
 
-    const candidateSkills: string[] = (profile as any).skills || [];
-    const requiredSkills: string[] = (job as any).requiredSkills || [];
-    const techStack: string[] = (job as any).techStack || [];
+    const candidateSkills: string[] = parseArray((profile as any).skills);
+    const requiredSkills: string[] = parseArray((job as any).requiredSkills);
+    const techStack: string[] = parseArray((job as any).techStack);
 
     const matchResult = calculateMatchScore(candidateSkills, requiredSkills, techStack);
 
@@ -100,7 +116,15 @@ export const getCareerRoadmap = async (req: Request, res: Response) => {
       });
     }
 
-    const candidateSkills: string[] = (profile as any).skills || [];
+    const parseArray = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val) || []; } catch { return []; }
+      }
+      return [];
+    };
+
+    const candidateSkills: string[] = parseArray((profile as any).skills);
     const normalize = (s: string) => s.toLowerCase().trim();
     const candNorm = candidateSkills.map(normalize);
 
