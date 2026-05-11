@@ -1,6 +1,7 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import sequelize from "./config/database";
 
 import "./models";
@@ -16,7 +17,6 @@ import resumeRoutes from "./routes/resumeRoutes";
 import protectedRoutes from "./routes/protected";
 import dashboardRoutes from "./routes/dashboard.route";
 
-dotenv.config();
 
 const app = express();
 
