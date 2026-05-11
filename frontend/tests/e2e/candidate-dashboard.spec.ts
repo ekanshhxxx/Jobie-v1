@@ -45,7 +45,7 @@ test.describe('Candidate Dashboard', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           userId: 1,
-          profileCompleteness: 75,
+          profileCompleteness: 60,
           skills: ['React', 'TypeScript'],
           githubVerifiedSkills: [{ skill: 'React', confidence: 91 }],
         }),
@@ -95,9 +95,9 @@ test.describe('Candidate Dashboard', () => {
     await page.goto('/candidate/dashboard');
 
     await expect(page.getByText('Candidate Dashboard')).toBeVisible();
-    await expect(page.getByText('Your search is moving with direction.')).toBeVisible();
+    await expect(page.getByText('Your search is moving with clarity.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Frontend Engineer' }).first()).toBeVisible();
-    await expect(page.getByText('75% ready')).toBeVisible();
+    await expect(page.getByText('60% ready')).toBeVisible();
     await expect(page.getByText('interview scheduled')).toBeVisible();
 
     await expect(page.getByRole('link', { name: 'See all jobs' })).toHaveAttribute('href', '/jobs');
