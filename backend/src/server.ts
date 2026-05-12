@@ -15,6 +15,8 @@ import githubRoutes from "./routes/githubRoutes";
 import resumeRoutes from "./routes/resumeRoutes";
 import protectedRoutes from "./routes/protected";
 import dashboardRoutes from "./routes/dashboard.route";
+import meetingRoutes from "./routes/meetingRoutes";
+import chatRoutes from "./routes/chatRoutes";
 
 dotenv.config();
 
@@ -50,6 +52,8 @@ app.use("/api/github", githubRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/protected", protectedRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/chat", chatRoutes);
 
 /* Root endpoint */
 
@@ -62,7 +66,7 @@ const PORT = process.env.PORT || 4000;
 /* Database connection */
 
 sequelize
-  .sync({ alter: true })
+  .sync()
   .then(() => {
     console.log("Database synced");
 
