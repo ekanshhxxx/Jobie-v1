@@ -412,7 +412,7 @@ export const getStreamChatAuth = async (req: AuthRequest, res: Response) => {
     try {
       await ensureStreamUser(user);
     } catch (streamError: any) {
-      console.error("[Stream] User upsert failed:", streamError.message);
+      console.error("[Stream] FULL ERROR:", streamError);
       return res.status(503).json({ 
         message: "Stream Chat service unavailable",
         detail: streamError.message,
@@ -533,6 +533,9 @@ export const createOrGetDirectChannel = async (req: AuthRequest, res: Response) 
     if (!requester) return res.status(401).json({ message: "Unauthorized" });
 
     const { jobId, candidateId } = req.body as { jobId?: number; candidateId?: number };
+    console.log("CHANNEL BODY:", req.body);
+    console.log("JOB ID:", jobId);
+    console.log("CANDIDATE ID:", candidateId);
     if (!jobId) return res.status(400).json({ message: "jobId is required" });
 
     const job = await Job.findByPk(jobId);

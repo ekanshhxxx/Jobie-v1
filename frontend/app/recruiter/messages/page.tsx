@@ -116,11 +116,8 @@ export default function RecruiterMessagesPage() {
     boot();
 
     return () => {
-      mounted = false;
-      if (bootClient) {
-        void bootClient.disconnectUser();
-      }
-    };
+  mounted = false;
+  };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
