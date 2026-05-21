@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest --runInBand --forceExit",
-    "test:watch": "jest --watch --runInBand",
-    "dev": "ts-node-dev src/server.ts",
-    "db:repair-indexes": "node src/scripts/repair-indexes.js --execute",
-    "db:repair-indexes:dry": "node src/scripts/repair-indexes.js"
-  },
+  "test": "jest --runInBand --forceExit",
+  "test:watch": "jest --watch --runInBand",
+  "dev": "ts-node-dev src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "db:repair-indexes": "node src/scripts/repair-indexes.js --execute",
+  "db:repair-indexes:dry": "node src/scripts/repair-indexes.js"
+},
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
