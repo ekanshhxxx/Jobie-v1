@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
     // Type errors are warnings, not runtime bugs. Skip to unblock deployment.
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
