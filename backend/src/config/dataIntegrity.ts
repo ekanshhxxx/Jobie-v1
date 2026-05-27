@@ -8,10 +8,10 @@ type IndexSpec = {
 };
 
 const INDEXES: IndexSpec[] = [
-  { table: "users", name: "ux_users_email", column: "email" },
-  { table: "users", name: "ux_users_firebase_uid", column: "firebaseUid" },
-  { table: "users", name: "ux_users_github_uid", column: "githubUid" },
-  { table: "profiles", name: "ux_profiles_user_id", column: "userId" },
+  { table: "Users", name: "ux_users_email", column: "email" },
+  { table: "Users", name: "ux_users_firebase_uid", column: "firebaseUid" },
+  { table: "Users", name: "ux_users_github_uid", column: "githubUid" },
+  { table: "Profiles", name: "ux_profiles_user_id", column: "userId" },
 ];
 
 export const ensureDataIntegrityIndexes = async () => {
