@@ -48,23 +48,30 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const existing = await User.findOne({ where: { email } });
+    const existing = await findUserByField({ email });
     if (existing) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, password: hashed, role: role || "candidate" });
+    const user = await upsertUserWithFallback(
+      { email },
+      { name, email, password: hashed, role: role || "candidate" }
+    );
+
+    if (!user) {
+      return res.status(503).json({ message: "Database unavailable" });
+    }
 
     const token = jwt.sign(
-      { id: (user as any).id, role: (user as any).role },
+      { id: user.id ?? user.sqlId, role: user.role },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     res.status(201).json({
       token,
-      user: { id: (user as any).id, name: (user as any).name, email: (user as any).email, role: (user as any).role }
+      user: { id: user.id ?? user.sqlId, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
     res.status(500).json({ message: "Registration failed", error });
@@ -92,29 +99,29 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await findUserByField({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    if (!(user as any).password) {
+    if (!user.password) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const valid = await bcrypt.compare(password, (user as any).password);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
-      { id: (user as any).id, role: (user as any).role },
+      { id: user.id ?? user.sqlId, role: user.role },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     res.status(200).json({
       token,
-      user: { id: (user as any).id, name: (user as any).name, email: (user as any).email, role: (user as any).role }
+      user: { id: user.id ?? user.sqlId, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
     res.status(500).json({ message: "Login failed", error });
