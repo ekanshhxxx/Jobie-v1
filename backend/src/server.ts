@@ -49,26 +49,27 @@ const PORT = Number(process.env.PORT) || 5000;
 const DB_SYNC_MODE = process.env.DB_SYNC_MODE || "safe";
 const shouldAlter = DB_SYNC_MODE === "alter";
 
-// connectMongo().then(() => {
-  sequelize
-    .sync(shouldAlter ? { alter: true } : undefined)
-    .then(() => {
-      if (shouldAlter) {
-        console.warn("DB sync running in ALTER mode. Use only for controlled migrations.");
-      }
-      ensureDataIntegrityIndexes().catch((error) => {
-        console.warn("Data integrity index check failed:", error);
-      });
-      console.log("Database synced");
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-      });
-    })
-    .catch((err) => {
-      console.error("Database error:", err);
-      // Still listen even if MySQL fails
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT} (MySQL Offline)`);
-      });
+connectMongo().catch(err => console.error("MongoDB initialization failed:", err));
+
+sequelize
+  .sync(shouldAlter ? { alter: true } : undefined)
+  .then(() => {
+    if (shouldAlter) {
+      console.warn("DB sync running in ALTER mode. Use only for controlled migrations.");
+    }
+    ensureDataIntegrityIndexes().catch((error) => {
+      console.warn("Data integrity index check failed:", error);
     });
-// });
+    console.log("Database synced");
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Database error:", err);
+    // Still listen even if MySQL fails
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} (MySQL Offline)`);
+    });
+  });
+

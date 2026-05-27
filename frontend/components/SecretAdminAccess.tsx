@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser } from '@/app/lib/api';
+import { getUser, API_BASE_URL } from '@/app/lib/api';
 
 /**
  * SecretAdminAccess Component
@@ -69,7 +69,7 @@ export default function SecretAdminAccess() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
