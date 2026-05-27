@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, API_BASE_URL, getUser, isApiError } from '../../../../lib/api';
-import { useToast } from '../../../../components/ToastProvider';
+import { api, API_BASE_URL, getUser, isApiError } from '@/app/lib/api';
+import { useToast } from '@/app/components/ToastProvider';
 import { FileText, UploadCloud, Target, BrainCircuit, Loader2, CheckCircle2, X, Briefcase } from 'lucide-react';
 
 export default function RecruiterAIParser() {
