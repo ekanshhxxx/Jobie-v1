@@ -199,19 +199,21 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      if (pendingLink) {
-        if (pendingLink.provider === 'google') {
-          const msg = 'To link accounts, click GitHub (the other provider).';
-          setError(msg);
-          toast({ type: 'info', title: 'Linking required', message: msg });
-          return;
-        }
+    if (pendingLink && pendingLink.provider === 'google') {
+      const msg = 'To link accounts, click GitHub (the other provider).';
+      setError(msg);
+      toast({ type: 'info', title: 'Linking required', message: msg });
+      return;
+    }
 
-        googleProvider.setCustomParameters({ prompt: 'select_account' });
-        const result = await signInWithPopup(auth, googleProvider);
+    try {
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, googleProvider);
+
+      setError('');
+      setLoading(true);
+
+      if (pendingLink) {
         await linkWithCredential(result.user, pendingLink.credential);
 
         const accessToken = (pendingLink.credential as { accessToken?: string }).accessToken;
@@ -230,8 +232,6 @@ export default function LoginPage() {
         return;
       }
 
-      googleProvider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
 
       const data = await api.post('/api/auth/firebase-login', { token: idToken });
@@ -258,24 +258,26 @@ export default function LoginPage() {
   };
 
   const handleGithubLogin = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      if (pendingLink) {
-        if (pendingLink.provider === 'github') {
-          const msg = 'To link accounts, click Google (the other provider).';
-          setError(msg);
-          toast({ type: 'info', title: 'Linking required', message: msg });
-          return;
-        }
+    if (pendingLink && pendingLink.provider === 'github') {
+      const msg = 'To link accounts, click Google (the other provider).';
+      setError(msg);
+      toast({ type: 'info', title: 'Linking required', message: msg });
+      return;
+    }
 
-        githubProvider.setCustomParameters({
-          allow_signup: 'true',
-          prompt: 'select_account'
-        });
-        githubProvider.addScope('read:user');
-        githubProvider.addScope('user:email');
-        const result = await signInWithPopup(auth, githubProvider);
+    try {
+      githubProvider.setCustomParameters({
+        allow_signup: 'true',
+        prompt: 'select_account'
+      });
+      githubProvider.addScope('read:user');
+      githubProvider.addScope('user:email');
+      const result = await signInWithPopup(auth, githubProvider);
+
+      setError('');
+      setLoading(true);
+
+      if (pendingLink) {
         await linkWithCredential(result.user, pendingLink.credential);
 
         const credential = GithubAuthProvider.credentialFromResult(result);
@@ -294,13 +296,6 @@ export default function LoginPage() {
         return;
       }
 
-      githubProvider.setCustomParameters({
-        allow_signup: 'true',
-        prompt: 'select_account'
-      });
-      githubProvider.addScope('read:user');
-      githubProvider.addScope('user:email');
-      const result = await signInWithPopup(auth, githubProvider);
       const credential = GithubAuthProvider.credentialFromResult(result);
       const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
       const idToken = await result.user.getIdToken();
