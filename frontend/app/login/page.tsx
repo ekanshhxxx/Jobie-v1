@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -8,12 +8,11 @@ import { api, isApiError, setAuth } from '../lib/api';
 import { useToast } from '../components/ToastProvider';
 import type { FirebaseError } from 'firebase/app';
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GithubAuthProvider,
   GoogleAuthProvider,
   fetchSignInMethodsForEmail,
-  linkWithCredential,
-  AuthCredential
 } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../src/lib/firebase';
 
@@ -24,16 +23,51 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [pendingLink, setPendingLink] = useState<{
-    credential: AuthCredential;
-    provider: 'google' | 'github';
-    email?: string;
-    methods?: string[];
-  } | null>(null);
   const [accountConflict, setAccountConflict] = useState<{
     message: string;
     accounts: Array<{ id?: number; email?: string; name?: string; match?: string }>;
   } | null>(null);
+
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!result) return;
+
+        setLoading(true);
+        const credential = GoogleAuthProvider.credentialFromResult(result) || GithubAuthProvider.credentialFromResult(result);
+        const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
+        const idToken = await result.user.getIdToken();
+
+        const data = await api.post('/api/auth/firebase-login', { 
+          token: idToken, 
+          githubUsername, 
+          githubUid 
+        });
+
+        setAuth(data.token, data.user);
+        
+        toast({
+          type: 'success',
+          emoji: '👋',
+          title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
+          message: 'You are now signed in. Redirecting…',
+        });
+
+        await routeAfterAuth(data.user);
+      } catch (err: unknown) {
+        if (await maybeHandleAccountLinking(err)) return;
+        if (maybeHandleBackendConflict(err)) return;
+        const msg = err instanceof Error ? err.message : 'Sign-in failed';
+        setError(msg);
+        toast({ type: 'error', title: 'Sign-in failed', message: msg });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
 
   const fetchGithubInfo = async (accessToken?: string) => {
     if (!accessToken) return { githubUsername: undefined as string | undefined, githubUid: undefined as string | undefined };
@@ -60,47 +94,36 @@ export default function LoginPage() {
       .join(', ');
   };
 
-  const maybeHandleAccountLinking = async (err: unknown, pendingProvider: 'google' | 'github') => {
+  const maybeHandleAccountLinking = async (err: unknown) => {
     const fbErr = err as { code?: string; customData?: { email?: string } };
     if (fbErr?.code !== 'auth/account-exists-with-different-credential') return false;
 
     const email = fbErr?.customData?.email;
-    const pendingCredential =
-      pendingProvider === 'github'
-        ? GithubAuthProvider.credentialFromError(err as FirebaseError)
-        : GoogleAuthProvider.credentialFromError(err as FirebaseError);
-
-    if (!email || !pendingCredential) {
-      const msg = 'This email is already linked to another sign-in method. Please sign in with that method first.';
+    if (!email) {
+      const msg = 'This email is already linked to another sign-in method. Please use that method to sign in.';
       setError(msg);
-      toast({ type: 'error', title: 'Linking required', message: msg });
+      toast({ type: 'error', title: 'Sign in method conflict', message: msg });
       return true;
     }
 
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
-      setPendingLink({ credential: pendingCredential, provider: pendingProvider, email, methods });
 
-      let msg = 'This email is already linked to another sign-in method. Please use that method to link accounts.';
+      let msg = 'This email is already linked to another sign-in method.';
       if (methods.includes('google.com')) {
-        msg = 'This email is linked to Google. Click Google to link accounts.';
+        msg = 'This email is linked to Google. Please click Google to sign in.';
       } else if (methods.includes('github.com')) {
-        msg = 'This email is linked to GitHub. Click GitHub to link accounts.';
+        msg = 'This email is linked to GitHub. Please click GitHub to sign in.';
       } else if (methods.includes('password')) {
-        msg = 'This email uses Email/Password. Please sign in with email and password, then try again to link.';
-      } else if (methods.length === 0) {
-        msg = 'We could not determine which provider owns this email. Click Google or GitHub to try linking.';
+        msg = 'This email uses Email/Password. Please sign in with email and password.';
       } else {
-        msg = `This email is linked to: ${formatProviderList(methods)}. Please sign in with that method first.`;
+        msg = `This email is linked to: ${formatProviderList(methods)}. Please sign in with that method.`;
       }
 
       setError(msg);
-      toast({ type: 'error', title: 'Linking required', message: msg });
+      toast({ type: 'error', title: 'Sign in method conflict', message: msg });
       return true;
     } catch (linkErr: unknown) {
-      const msg = linkErr instanceof Error ? linkErr.message : 'Linking failed';
-      setError(msg);
-      toast({ type: 'error', title: 'Linking failed', message: msg });
       return true;
     }
   };
@@ -177,7 +200,6 @@ export default function LoginPage() {
     try {
       const data = await api.post('/api/auth/login', form);
       setAuth(data.token, data.user);
-      setPendingLink(null);
       toast({
         type: 'success',
         emoji: '👋',
@@ -199,72 +221,17 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    if (pendingLink && pendingLink.provider === 'google') {
-      const msg = 'To link accounts, click GitHub (the other provider).';
-      setError(msg);
-      toast({ type: 'info', title: 'Linking required', message: msg });
-      return;
-    }
-
     try {
       googleProvider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, googleProvider);
-
-      setError('');
-      setLoading(true);
-
-      if (pendingLink) {
-        await linkWithCredential(result.user, pendingLink.credential);
-
-        const accessToken = (pendingLink.credential as { accessToken?: string }).accessToken;
-        const { githubUsername, githubUid } = await fetchGithubInfo(accessToken);
-        const idToken = await result.user.getIdToken();
-        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
-        setAuth(data.token, data.user);
-        setPendingLink(null);
-
-        toast({
-          type: 'success',
-          title: 'Accounts linked',
-          message: 'Google and GitHub are now linked. Redirecting...'
-        });
-        await routeAfterAuth(data.user);
-        return;
-      }
-
-      const idToken = await result.user.getIdToken();
-
-      const data = await api.post('/api/auth/firebase-login', { token: idToken });
-      setAuth(data.token, data.user);
-      setPendingLink(null);
-
-      toast({
-        type: 'success',
-        emoji: '👋',
-        title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-        message: 'You are now signed in. Redirecting…',
-      });
-
-      await routeAfterAuth(data.user);
+      await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      if (await maybeHandleAccountLinking(err, 'google')) return;
-      if (maybeHandleBackendConflict(err)) return;
       const msg = err instanceof Error ? err.message : 'Google login failed';
       setError(msg);
       toast({ type: 'error', title: 'Google sign-in failed', message: msg });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleGithubLogin = async () => {
-    if (pendingLink && pendingLink.provider === 'github') {
-      const msg = 'To link accounts, click Google (the other provider).';
-      setError(msg);
-      toast({ type: 'info', title: 'Linking required', message: msg });
-      return;
-    }
-
     try {
       githubProvider.setCustomParameters({
         allow_signup: 'true',
@@ -272,58 +239,11 @@ export default function LoginPage() {
       });
       githubProvider.addScope('read:user');
       githubProvider.addScope('user:email');
-      const result = await signInWithPopup(auth, githubProvider);
-
-      setError('');
-      setLoading(true);
-
-      if (pendingLink) {
-        await linkWithCredential(result.user, pendingLink.credential);
-
-        const credential = GithubAuthProvider.credentialFromResult(result);
-        const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
-        const idToken = await result.user.getIdToken();
-        const data = await api.post('/api/auth/firebase-login', { token: idToken, githubUsername, githubUid });
-        setAuth(data.token, data.user);
-        setPendingLink(null);
-
-        toast({
-          type: 'success',
-          title: 'Accounts linked',
-          message: 'GitHub and Google are now linked. Redirecting...'
-        });
-        await routeAfterAuth(data.user);
-        return;
-      }
-
-      const credential = GithubAuthProvider.credentialFromResult(result);
-      const { githubUsername, githubUid } = await fetchGithubInfo(credential?.accessToken);
-      const idToken = await result.user.getIdToken();
-
-      const data = await api.post('/api/auth/firebase-login', {
-        token: idToken,
-        githubUsername,
-        githubUid
-      });
-      setAuth(data.token, data.user);
-      setPendingLink(null);
-
-      toast({
-        type: 'success',
-        emoji: '👋',
-        title: `Welcome back, ${data.user?.name?.split(' ')[0] ?? 'there'}!`,
-        message: 'You are now signed in. Redirecting…',
-      });
-
-      await routeAfterAuth(data.user);
+      await signInWithRedirect(auth, githubProvider);
     } catch (err: unknown) {
-      if (await maybeHandleAccountLinking(err, 'github')) return;
-      if (maybeHandleBackendConflict(err)) return;
       const msg = err instanceof Error ? err.message : 'GitHub login failed';
       setError(msg);
       toast({ type: 'error', title: 'GitHub sign-in failed', message: msg });
-    } finally {
-      setLoading(false);
     }
   };
 
