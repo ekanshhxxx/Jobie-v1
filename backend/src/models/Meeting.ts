@@ -28,26 +28,14 @@ Meeting.init(
     jobId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: "jobs", // The table name
-        key: "id",
-      },
     },
     recruiterId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: "users",
-        key: "id",
-      },
     },
     candidateId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: "users",
-        key: "id",
-      },
     },
     title: {
       type: DataTypes.STRING(255),
